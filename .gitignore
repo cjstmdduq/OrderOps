@@ -6,4 +6,5 @@ node_modules/
 *.md
 *.csv
 *.xlsx
+.obsidian/
 
