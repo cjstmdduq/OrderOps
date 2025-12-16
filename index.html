@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrderOps</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- 헤더 -->
+    <header class="header">
+      <div class="header-left">
+        <h1 class="logo">OrderOps</h1>
+      </div>
+      <div class="header-right">
+        <span class="date-display" id="currentDate"></span>
+      </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="main-content">
+      <!-- 파일 업로드 섹션 -->
+      <section class="upload-section">
+        <div class="upload-area" id="uploadArea">
+          <div class="upload-icon"></div>
+          <h1>주문파일 업로드</h1>
+          <p>스마트스토어에서 다운로드한 주문 CSV 파일만 드래그하거나 클릭하여 업로드할 수 있어요.</p>
+          <p>
+            CSV 파일로 변경하려면: 스마트스토어 주문 엑셀 파일을 연 뒤
+            <strong>다른 이름으로 저장</strong> &gt; 파일 형식을
+            <strong>CSV UTF-8(쉼표로 분리)</strong>로 선택해서 저장해주세요.
+          </p>
+          <input type="file" id="fileInput" accept=".csv" hidden>
+          <button class="upload-btn" id="uploadBtn">파일 선택</button>
+        </div>
+        <div class="file-info" id="fileInfo" style="display: none;">
+          <span class="file-name" id="fileName"></span>
+          <button class="clear-btn" id="clearBtn">✕</button>
+        </div>
+      </section>
+
+      <!-- 요약 카드 섹션 -->
+      <section class="summary-section" id="summarySection" style="display: none;">
+        <div class="summary-cards">
+          <div class="summary-card">
+            <div class="card-icon"></div>
+            <div class="card-content">
+              <span class="card-value" id="totalOrders">0</span>
+              <span class="card-label">총 박스 수</span>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="card-icon"></div>
+            <div class="card-content">
+              <span class="card-value" id="totalCustomers">0</span>
+              <span class="card-label">수취인 수</span>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="card-icon"></div>
+            <div class="card-content">
+              <span class="card-value" id="giftOrders">0</span>
+              <span class="card-label">사은품 대상</span>
+            </div>
+          </div>
+          <div class="summary-card">
+            <div class="card-icon"></div>
+            <div class="card-content">
+              <span class="card-value" id="totalAmount">₩0</span>
+              <span class="card-label">총 주문금액</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 필터 섹션 -->
+      <section class="filter-section" id="filterSection" style="display: none;">
+        <div class="filter-group">
+          <label>제품 유형</label>
+          <select id="productTypeFilter">
+            <option value="">전체</option>
+            <option value="유아롤매트">유아 롤매트</option>
+            <option value="애견롤매트">애견 롤매트</option>
+            <option value="퍼즐매트">퍼즐매트</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>주문 상태</label>
+          <select id="orderStatusFilter">
+            <option value="">전체</option>
+            <option value="발송대기">발송대기</option>
+            <option value="배송중">배송중</option>
+            <option value="배송완료">배송완료</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>사은품</label>
+          <select id="giftFilter">
+            <option value="">전체</option>
+            <option value="있음">있음</option>
+            <option value="없음">없음</option>
+          </select>
+        </div>
+        <div class="filter-group search-group">
+          <label>검색</label>
+          <input type="text" id="searchInput" placeholder="주문번호, 고객명 검색...">
+        </div>
+      </section>
+
+      <!-- 주문 테이블 섹션 -->
+      <section class="orders-section" id="ordersSection" style="display: none;">
+        <div class="section-header">
+          <h2>주문 목록</h2>
+          <div class="section-actions">
+            <div class="view-toggle">
+              <button class="view-btn" id="customerViewBtn" title="고객 중심 뷰">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <span>고객별</span>
+              </button>
+              <button class="view-btn active" id="packingViewBtn" title="발주 양식 뷰">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <span>발주양식</span>
+              </button>
+            </div>
+            <button class="action-btn" id="exportKyungdongBtn">경동 발주서</button>
+            <button class="action-btn primary" id="exportLozenBtn">로젠 발주서</button>
+          </div>
+        </div>
+        
+        <!-- 고객별 카드 뷰 -->
+        <div class="customer-cards-container" id="customerCardsContainer" style="display: none;">
+          <!-- 동적으로 생성됨 -->
+        </div>
+
+        <!-- 발주 양식 뷰 (패킹 결과 테이블) -->
+        <div class="packing-result-container" id="packingResultContainer">
+          <table class="packing-table" id="packingTable">
+            <thead>
+              <tr>
+                <th>수취인</th>
+                <th>품목(디자인코드)</th>
+                <th>포장</th>
+                <th>비고</th>
+                <th>사은품</th>
+              </tr>
+            </thead>
+            <tbody id="packingTableBody">
+              <!-- 동적으로 생성됨 -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 빈 상태 -->
+      <section class="empty-state" id="emptyState">
+        <div class="empty-icon"></div>
+        <h3>주문 데이터를 불러와주세요</h3>
+        <p>상단의 업로드 영역에 스마트스토어에서 다운로드한 주문 파일을 업로드하세요.</p>
+      </section>
+    </main>
+
+    <!-- 주문 상세 모달 -->
+    <div class="modal" id="orderModal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>주문 상세</h2>
+          <button class="modal-close" id="modalClose">✕</button>
+        </div>
+        <div class="modal-body" id="modalBody">
+          <!-- 동적으로 생성됨 -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SheetJS for Excel parsing/generation -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
