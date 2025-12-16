@@ -8,3 +8,4 @@ node_modules/
 *.xlsx
 .obsidian/
 
+!발주 프로그램기획/배송담당자_문의사항.md

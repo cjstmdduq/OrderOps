@@ -36,7 +36,7 @@ const PACKAGING_THRESHOLDS = {
   "9": { small: 6, large: 10, vinyl: 10.5 },
   "10": { small: 5, large: 9, vinyl: 9.5 }, // 10T 추가
   "12": { small: 3.5, large: 8, vinyl: 8.5 },
-  "15": { small: 3, large: 7, vinyl: 8 },
+  "15": { small: 1, large: 7, vinyl: 8 },
   "17": { small: 3, large: 7, vinyl: 8 },
   "22": { small: 1, large: 3, vinyl: 3.5 }
 };
@@ -343,6 +343,11 @@ function parseCSVLine(line) {
 
 function parseOrderData(row) {
   try {
+    // 필수 데이터 검증 (상품주문번호나 상품명이 없으면 로드하지 않음/빈 행 제외)
+    if (!row['상품주문번호'] || !row['상품명']) {
+      return null;
+    }
+
     const optionInfo = row['옵션정보'] || '';
     const productName = row['상품명'] || '';
     const parsed = parseOptionInfo(optionInfo);
@@ -446,14 +451,22 @@ function parseWidth(widthStr) {
 function parseLengthToMeters(lengthStr) {
   if (!lengthStr) return 0;
   // m 단위
-  let match = lengthStr.match(/(\d+\.?\d*)m(?!m)/i);
+  let match = lengthStr.match(/(\d+\.?\d*)m(?!m)/i); // mm가 아닌 m만 찾음
   if (match) return parseFloat(match[1]);
-  // cm 단위
+
+  // cm 단위 (명시적)
   match = lengthStr.match(/(\d+)cm/i);
   if (match) return parseInt(match[1]) / 100;
-  // 숫자만 있는 경우 (cm로 간주)
-  match = lengthStr.match(/(\d+)/);
-  if (match) return parseInt(match[1]) / 100;
+
+  // 단위 없는 숫자
+  // 30 이상이면 cm로 간주 (0.3m), 30 미만이면 m로 간주
+  // 롤매트는 보통 m단위 판매가 많지만 100단위는 cm일 확률 높음
+  match = lengthStr.match(/(\d+(\.\d+)?)/);
+  if (match) {
+    const val = parseFloat(match[1]);
+    if (val >= 30) return val / 100; // 30cm 이상은 cm로 간주
+    return val; // 그 외는 m
+  }
   return 0;
 }
 
@@ -665,21 +678,22 @@ function parseOptionInfo(optionInfo) {
       result.length = lengthNum + 'cm';
     }
   }
-  
+
   // 2. "길이: 800cm" 패턴
   if (!result.length) {
     lengthMatch = optionInfo.match(/길이:\s*([0-9.]+)\s*(cm|m|미터|메터)/i);
     if (lengthMatch) {
       const value = parseFloat(lengthMatch[1]);
       const unit = lengthMatch[2] ? lengthMatch[2].toLowerCase() : 'cm';
-      if (unit.includes('m') || unit.includes('미터') || unit.includes('메터')) {
+      // 'cm'가 포함되어 있으면 m로 오인하지 않도록 체크
+      if (unit === 'm' || unit === '미터' || unit === '메터') {
         result.length = value + 'm';
       } else {
         result.length = value + 'cm';
       }
     }
   }
-  
+
   // 3. "길이(수량추가): 50cm" 패턴은 수량이므로 무시
   // 4. "길이:" 없이 숫자+m/cm 패턴도 찾기 (예: "3m", "300cm", "3미터 롤")
   if (!result.length) {
@@ -689,7 +703,7 @@ function parseOptionInfo(optionInfo) {
       result.length = value + 'm';
     }
   }
-  
+
   // 5. cm 단위로도 찾기 (예: "300cm") - 3자리 이상 숫자
   if (!result.length) {
     lengthMatch = optionInfo.match(/([0-9]{3,})\s*cm/i);
@@ -927,14 +941,14 @@ function determineRollPackaging(item) {
 
   // 두께별 기준 적용
   if (length >= thresholds.vinyl) {
-    return { type: 'vinyl', needsStar: true };
+    return { type: 'vinyl', needsStar: true, canCombine: false };
   } else if (length >= thresholds.large) {
-    return { type: 'largeBox', needsStar: false };
+    return { type: 'largeBox', needsStar: false, canCombine: false };
   } else if (length >= thresholds.small) {
-    return { type: 'smallBox', needsStar: false };
+    return { type: 'smallBox', needsStar: false, canCombine: false };
   } else {
-    // 매우 작은 경우 합포장 대상
-    return { type: 'combine', needsStar: false };
+    // 기준 미달(소형) -> 소박스지만 합포장 가능
+    return { type: 'smallBox', needsStar: false, canCombine: true };
   }
 }
 
@@ -962,18 +976,19 @@ function processPacking() {
     const boxes = [];
 
     // 1. 롤매트 처리
-    const combineItems = []; // 합포장 대상
+    let combinableItems = []; // 합포장 가능한 아이템들 (별도 박스 없이 합침)
+    let standaloneBoxes = []; // 독립적인 박스들
 
     group.rollItems.forEach(item => {
       const packaging = determineRollPackaging(item);
 
-      if (packaging.type === 'combine') {
-        combineItems.push({ ...item, packaging });
+      if (packaging.canCombine) {
+        combinableItems.push({ ...item, packaging });
       } else {
-        // 수량만큼 개별 박스 생성
+        // 단독 박스 생성
         for (let i = 0; i < item.quantity; i++) {
           const designCode = generateRollMatCode(item);
-          boxes.push({
+          standaloneBoxes.push({
             type: 'roll',
             packagingType: packaging.type,
             needsStar: packaging.needsStar,
@@ -986,32 +1001,37 @@ function processPacking() {
       }
     });
 
-    // 테이프는 합포장 대상에 추가
+    // 테이프는 무조건 합포장
     group.tapeItems.forEach(item => {
-      combineItems.push({ ...item, packaging: { type: 'combine', needsStar: false } });
+      combinableItems.push({ ...item, packaging: { type: 'smallBox', canCombine: true } });
     });
 
-    // 합포장 대상 처리
-    if (combineItems.length > 0) {
-      // 기존 박스가 있으면 마지막 박스에 합포장
-      if (boxes.length > 0) {
-        const lastBox = boxes[boxes.length - 1];
-        combineItems.forEach(item => {
+    // 합포장 아이템 처리
+    if (combinableItems.length > 0) {
+      if (standaloneBoxes.length > 0) {
+        // 기존 박스(마지막)에 합포장
+        // 배송메모에 '합포장 표시'가 필요할 수도 있음
+        const lastBox = standaloneBoxes[standaloneBoxes.length - 1];
+
+        combinableItems.forEach(item => {
           lastBox.items.push(item);
         });
+
         lastBox.isCombined = true;
         lastBox.remark = '합';
-        // 디자인 텍스트에 합포장 아이템 추가
-        const combineDesigns = combineItems.map(i => generateDesignCode(i)).join('+');
+
+        // 디자인 텍스트 업데이트
+        const combineDesigns = combinableItems.map(i => generateDesignCode(i)).join('+');
         lastBox.designText += '+' + combineDesigns;
+
       } else {
-        // 박스가 없으면 새 박스 생성
-        const combineDesigns = combineItems.map(i => generateDesignCode(i)).join('+');
-        boxes.push({
+        // 담을 박스가 없으면 새 소박스 생성
+        const combineDesigns = combinableItems.map(i => generateDesignCode(i)).join('+');
+        standaloneBoxes.push({
           type: 'roll',
           packagingType: 'smallBox',
           needsStar: false,
-          items: combineItems,
+          items: combinableItems,
           designText: combineDesigns,
           isCombined: true,
           remark: '합'
@@ -1019,34 +1039,37 @@ function processPacking() {
       }
     }
 
+    // 최종 박스 리스트에 추가
+    boxes.push(...standaloneBoxes);
+
     // 2. 퍼즐매트 처리 (롤매트와 별도)
     if (group.puzzleItems.length > 0) {
       // 원본 배열을 복사해서 사용 (원본 수정 방지)
       const puzzleItemsCopy = group.puzzleItems.map(item => ({ ...item }));
       const puzzleBoxCount = calculatePuzzleBoxes(puzzleItemsCopy);
       const puzzleDesign = puzzleItemsCopy.map(p => generatePuzzleCode(p)).join('+');
-      
+
       // 퍼즐매트 아이템을 박스별로 분배
       const thickness = puzzleItemsCopy[0].thicknessNum || 25;
       const capacity = PUZZLE_BOX_CAPACITY[String(thickness)] || 6;
-      
+
       let itemIndex = 0;
       for (let i = 0; i < puzzleBoxCount; i++) {
         const boxItems = [];
         let remainingCapacity = capacity;
-        
+
         // 각 박스에 capacity만큼 아이템 할당
         while (itemIndex < puzzleItemsCopy.length && remainingCapacity > 0) {
           const item = puzzleItemsCopy[itemIndex];
           const takeQty = Math.min(item.quantity, remainingCapacity);
-          
+
           if (takeQty > 0) {
             boxItems.push({
               ...item,
               quantity: takeQty
             });
             remainingCapacity -= takeQty;
-            
+
             // 아이템의 수량을 줄임
             if (takeQty >= item.quantity) {
               itemIndex++;
@@ -1057,7 +1080,7 @@ function processPacking() {
             itemIndex++;
           }
         }
-        
+
         // 아이템이 있는 박스만 추가
         if (boxItems.length > 0 && boxItems.reduce((sum, item) => sum + item.quantity, 0) > 0) {
           boxes.push({
@@ -1140,7 +1163,7 @@ function renderPackedResults() {
 
   packedOrders.forEach(box => {
     const packagingText = box.packagingType === 'vinyl' ? '비닐' :
-                         box.packagingType === 'largeBox' ? '대박스' : '소박스';
+      box.packagingType === 'largeBox' ? '대박스' : '소박스';
     html += `<tr>
       <td>${box.recipientLabel}</td>
       <td>${box.designText}</td>
@@ -1308,7 +1331,7 @@ function renderPackingTable() {
 
   validBoxes.forEach((box, index) => {
     const packagingText = box.packagingType === 'vinyl' ? '비닐' :
-                         box.packagingType === 'largeBox' ? '대박스' : '박스';
+      box.packagingType === 'largeBox' ? '대박스' : '박스';
 
     // 비고 내용 조합
     let remarks = [];
@@ -1348,7 +1371,7 @@ function showPackingDetail(box) {
     // 원본 데이터 표시용
     const rawData = item.rawRow || {};
     const rawInfo = rawData['옵션정보'] || rawData['상품명'] || '';
-    
+
     return `
     <div style="padding: 0.5rem; background: #f5f5f5; border-radius: 4px; margin-bottom: 0.5rem;">
       <strong>${item.productType}</strong> ${item.design || item.productName}<br>
@@ -1412,16 +1435,42 @@ function renderCustomerCards() {
     card.className = 'customer-card';
     card.dataset.key = customer.key;
 
-    // 포장방식 결정 (미리보기)
-    let packagingPreview = '박스';
-    let hasVinyl = false;
+    // 패킹 요약 계산
+    let packStats = {
+      smallBox: 0,
+      largeBox: 0,
+      vinyl: 0,
+      total: 0
+    };
 
-    customer.rollItems.forEach(item => {
-      const pkg = determineRollPackaging(item);
-      if (pkg.type === 'vinyl') hasVinyl = true;
+    // packedOrders에서 해당 고객의 박스 정보 집계 (이미 processPacking()이 실행된 상태여야 함)
+    // 현재 구조상 packedOrders는 전역변수이고, customerName 등으로 필터링해야 함
+    // 하지만 renderCustomerCards() 시점에는 packedOrders가 이미 채워져 있음
+    const customerBoxes = packedOrders.filter(b => b.group.key === customer.key);
+
+    customerBoxes.forEach(box => {
+      packStats.total++;
+      if (box.packagingType === 'vinyl') packStats.vinyl++;
+      else if (box.packagingType === 'largeBox') packStats.largeBox++;
+      else packStats.smallBox++;
     });
-    if (customer.puzzleItems.length > 0) hasVinyl = true;
-    if (hasVinyl) packagingPreview = '비닐';
+
+    // 택배사 결정 로직 (임시: 대박스나 비닐이 있으면 경동, 아니면 로젠)
+    let courierName = '로젠택배';
+    let courierClass = 'lozen';
+    if (packStats.largeBox > 0 || packStats.vinyl > 0) {
+      courierName = '경동택배';
+      courierClass = 'kyungdong';
+    }
+
+    // 패킹 요약 텍스트 생성
+    let packSummary = [];
+    if (packStats.smallBox > 0) packSummary.push(`소박스 ${packStats.smallBox}`);
+    if (packStats.largeBox > 0) packSummary.push(`대박스 ${packStats.largeBox}`);
+    if (packStats.vinyl > 0) packSummary.push(`비닐 ${packStats.vinyl}`);
+    let packSummaryText = packSummary.join(' / ');
+    if (packSummary.length === 0 && customerBoxes.length === 0) packSummaryText = '패킹 대기';
+
 
     // 헤더
     const header = document.createElement('div');
@@ -1433,14 +1482,15 @@ function renderCustomerCards() {
           <h3>
             ${customer.customerName}
             <span class="order-count">${customer.items.length}건</span>
+            <span class="courier-badge ${courierClass}">${courierName}</span>
           </h3>
           <div class="customer-address">${customer.address}</div>
         </div>
       </div>
       <div class="customer-meta">
         <div class="customer-meta-item">
-          <span class="meta-value packaging-badge ${hasVinyl ? 'vinyl' : 'box'}">${packagingPreview}</span>
-          <span class="meta-label">포장방식</span>
+          <span class="meta-value packaging-total">${packSummaryText}</span>
+          <span class="meta-label">포장 내역</span>
         </div>
         ${customer.giftEligible ? `
           <div class="customer-meta-item gift">
@@ -1621,6 +1671,11 @@ function applyFilters() {
     return true;
   });
 
+
+  // 필터링된 데이터로 다시 그룹화 및 패킹 처리
+  groupOrdersByRecipient();
+  processPacking();
+  updateSummary();
   renderOrders();
 }
 
@@ -1629,13 +1684,13 @@ function showCustomerDetail(customer) {
   let itemsHtml = customer.items.map(item => {
     const packaging = determineRollPackaging(item);
     const packagingText = packaging.type === 'vinyl' ? '비닐' :
-                         packaging.type === 'largeBox' ? '대박스' :
-                         packaging.type === 'combine' ? '합포장' : '소박스';
-    
+      packaging.type === 'largeBox' ? '대박스' :
+        packaging.type === 'combine' ? '합포장' : '소박스';
+
     // 원본 데이터 표시용
     const rawData = item.rawRow || {};
     const rawInfo = rawData['옵션정보'] || rawData['상품명'] || '';
-    
+
     return `
     <div style="padding: 0.75rem; margin-bottom: 0.5rem; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
       <span class="product-badge ${getProductBadgeClass(item.productType)}">${item.productType}</span>
@@ -1709,8 +1764,8 @@ function handleSelectAll(e) {
 function showOrderDetail(order) {
   const packaging = determineRollPackaging(order);
   const packagingText = packaging.type === 'vinyl' ? '비닐' :
-                       packaging.type === 'largeBox' ? '대박스' :
-                       packaging.type === 'combine' ? '합포장' : '소박스';
+    packaging.type === 'largeBox' ? '대박스' :
+      packaging.type === 'combine' ? '합포장' : '소박스';
 
   modalBody.innerHTML = `
     <div class="order-detail">
@@ -1735,9 +1790,9 @@ function showOrderDetail(order) {
         <label>옵션</label>
         <p>두께: <strong>${order.thickness}</strong> / 폭: <strong>${order.width}</strong> / 길이: <strong>${order.length}</strong></p>
         ${order.rawRow ? (() => {
-          const rawInfo = order.rawRow['옵션정보'] || order.rawRow['상품명'] || '';
-          return rawInfo ? `<div style="margin-top: 0.25rem; font-size: 0.7rem; color: #999; font-style: italic;">원본: ${rawInfo}</div>` : '';
-        })() : ''}
+      const rawInfo = order.rawRow['옵션정보'] || order.rawRow['상품명'] || '';
+      return rawInfo ? `<div style="margin-top: 0.25rem; font-size: 0.7rem; color: #999; font-style: italic;">원본: ${rawInfo}</div>` : '';
+    })() : ''}
       </div>
       <div class="detail-group">
         <label>수량</label>
