@@ -367,3 +367,4 @@ results.slice(0, 10).forEach((r, i) => {
   console.log(`${i + 1}. [${r.productId}] ${r.designCode}`);
 });
 
+
