@@ -315,6 +315,121 @@ body {
   overflow: hidden;
 }
 
+/* ========== 탭 네비게이션 ========== */
+.tab-container {
+  display: flex;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  transition: all 0.2s ease;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface);
+}
+
+.tab-btn.active {
+  color: var(--primary);
+  background: var(--surface);
+  border-bottom-color: var(--primary);
+  font-weight: 600;
+}
+
+/* ========== 콘텐츠 섹션 ========== */
+.content-section {
+  display: none;
+}
+
+.content-section.active,
+.content-section[style*="block"] {
+  display: block;
+}
+
+#customerSection .card-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.5rem;
+}
+
+#rawSection .table-container,
+#kyungdongSection .table-container,
+#lozenSection .table-container {
+  max-height: 600px;
+  overflow: auto;
+}
+
+#rawTable,
+#kyungdongTable,
+#lozenTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+#rawTable th,
+#rawTable td,
+#kyungdongTable th,
+#kyungdongTable td,
+#lozenTable th,
+#lozenTable td {
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+#rawTable th,
+#kyungdongTable th,
+#lozenTable th {
+  background: var(--background);
+  font-weight: 600;
+  color: var(--text-secondary);
+  position: sticky;
+  top: 0;
+}
+
+#rawTable tbody tr:hover,
+#kyungdongTable tbody tr:hover,
+#lozenTable tbody tr:hover {
+  background: var(--primary-light) !important;
+}
+
+/* 같은 수취인 그룹별 배경색 */
+#rawTable tbody tr.raw-row-group-even {
+  background: #ffffff;
+}
+
+#rawTable tbody tr.raw-row-group-odd {
+  background: #f8f9fa;
+}
+
+/* 경동/로젠 테이블: 고객(그룹) 단위로 배경색 */
+#kyungdongTable tbody tr.raw-row-group-even,
+#lozenTable tbody tr.raw-row-group-even {
+  background: #ffffff;
+}
+
+#kyungdongTable tbody tr.raw-row-group-odd,
+#lozenTable tbody tr.raw-row-group-odd {
+  background: #f8f9fa;
+}
+
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -804,6 +919,16 @@ body {
   color: #5a4a7a;
 }
 
+.request-tag.anomaly {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.anomaly-row {
+  box-shadow: inset 4px 0 0 #e11d48;
+}
+
 /* 스타 마킹 */
 .star-mark {
   color: #e74c3c;
@@ -942,6 +1067,55 @@ body {
   border-radius: 4px;
   font-size: 0.75rem;
   font-weight: 600;
+}
+
+/* 추가 컬럼 스타일 */
+.box-num-tag {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-right: 0.5rem;
+  border: 1px solid #e2e8f0;
+}
+
+.recipient-name {
+  font-weight: 600;
+}
+
+.phone-cell {
+  font-family: 'SF Mono', monospace;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.address-cell {
+  max-width: 300px;
+}
+
+.base-addr {
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail-addr {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.qty-cell {
+  font-weight: 700;
+  color: var(--primary);
+  text-align: center;
 }
 
 /* 기존 packed-results (모달용) */
