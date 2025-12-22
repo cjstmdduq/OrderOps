@@ -5,7 +5,7 @@ let groupedOrders = {}; // 고객별 그룹화된 주문
 let packedOrders = []; // 패킹 처리된 결과
 let rawOrderData = []; // 원본 CSV/Excel 데이터
 let shippingFees = []; // 배송비 데이터
-let currentTabId = 'kyungdong';
+let currentTabId = 'raw';
 
 // ========== 제품 및 발주 로직 상수 ==========
 // 상품번호 → 제품타입 매핑
@@ -100,6 +100,7 @@ const COLOR_ABBREVIATIONS = {
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const uploadBtn = document.getElementById('uploadBtn');
+const testDataBtn = document.getElementById('testDataBtn');
 const fileInfo = document.getElementById('fileInfo');
 const fileName = document.getElementById('fileName');
 const clearBtn = document.getElementById('clearBtn');
@@ -107,7 +108,6 @@ const clearBtn = document.getElementById('clearBtn');
 const summarySection = document.getElementById('summarySection');
 const filterSection = document.getElementById('filterSection');
 const ordersSection = document.getElementById('ordersSection');
-const emptyState = document.getElementById('emptyState');
 const ordersTableBody = document.getElementById('ordersTableBody');
 
 const kyungdongCount = document.getElementById('kyungdongCount');
@@ -125,11 +125,16 @@ const orderModal = document.getElementById('orderModal');
 const modalClose = document.getElementById('modalClose');
 const modalBody = document.getElementById('modalBody');
 
+const sidebarItems = document.querySelectorAll('.sidebar-item');
+const shippingFeesPage = document.getElementById('shippingFeesPage');
+const shippingFeesTableBody = document.getElementById('shippingFeesTableBody');
+
 // ========== 초기화 ==========
 document.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   updateDateDisplay();
   loadShippingFees(); // 배송비 데이터 로드
+  switchPage('orders'); // 초기 페이지 설정
 });
 
 function initEventListeners() {
@@ -140,6 +145,11 @@ function initEventListeners() {
   });
   fileInput.addEventListener('change', handleFileSelect);
   clearBtn.addEventListener('click', clearFile);
+
+  // 테스트 데이터 버튼
+  if (testDataBtn) {
+    testDataBtn.addEventListener('click', loadTestData);
+  }
 
   // 드래그 앤 드롭
   uploadArea.addEventListener('dragover', (e) => {
@@ -177,15 +187,27 @@ function initEventListeners() {
   }
 
   // 발주서 다운로드 버튼
+  const exportCombinedBtn = document.getElementById('exportCombinedBtn');
   const exportKyungdongBtn = document.getElementById('exportKyungdongBtn');
   const exportLozenBtn = document.getElementById('exportLozenBtn');
 
+  if (exportCombinedBtn) {
+    exportCombinedBtn.addEventListener('click', () => exportToCombined());
+  }
   if (exportKyungdongBtn) {
     exportKyungdongBtn.addEventListener('click', () => exportToKyungdong());
   }
   if (exportLozenBtn) {
     exportLozenBtn.addEventListener('click', () => exportToLozen());
   }
+
+  // 사이드바 네비게이션
+  sidebarItems.forEach(item => {
+    item.addEventListener('click', () => {
+      const page = item.getAttribute('data-page');
+      switchPage(page);
+    });
+  });
 }
 
 function updateDateDisplay() {
@@ -205,6 +227,30 @@ function handleDrop(e) {
   uploadArea.classList.remove('dragover');
   const file = e.dataTransfer.files[0];
   if (file) processFile(file);
+}
+
+// 테스트용 CSV 파일 로드 (/OredrOps_Test.csv)
+async function loadTestData() {
+  try {
+    const response = await fetch('OredrOps_Test.csv');
+    if (!response.ok) {
+      alert('테스트 CSV 파일을 불러오지 못했습니다.');
+      return;
+    }
+
+    const text = await response.text();
+    // 기존 CSV 파서 재사용
+    parseCSV(text);
+
+    // UI 업데이트: 파일명 표시
+    if (fileName && fileInfo) {
+      fileName.textContent = 'OredrOps_Test.csv (테스트)';
+      fileInfo.style.display = 'flex';
+    }
+  } catch (error) {
+    console.error('테스트 데이터 로드 오류:', error);
+    alert('테스트 데이터를 불러오는 중 오류가 발생했습니다.');
+  }
 }
 
 function processFile(file) {
@@ -228,8 +274,17 @@ function processFile(file) {
 function readCSV(file) {
   const reader = new FileReader();
   reader.onload = (e) => {
-    const text = e.target.result;
-    parseCSV(text);
+    try {
+      const text = e.target.result;
+      parseCSV(text);
+    } catch (error) {
+      console.error('CSV 파싱 오류:', error);
+      alert('CSV 파일 읽기에 실패했습니다: ' + error.message);
+    }
+  };
+  reader.onerror = (e) => {
+    console.error('파일 읽기 오류:', e);
+    alert('파일 읽기에 실패했습니다.');
   };
   reader.readAsText(file, 'UTF-8');
 }
@@ -348,11 +403,20 @@ function parseCSVToRows(text) {
  * CSV 파싱 (줄바꿈/콤마가 포함된 큰따옴표 필드 대응)
  */
 function parseCSV(text) {
+  // BOM 제거 (UTF-8 BOM: \uFEFF)
+  if (text.charCodeAt(0) === 0xFEFF) {
+    text = text.slice(1);
+  }
+
   const rows = parseCSVToRows(text);
 
-  if (rows.length < 2) return;
+  if (!rows || rows.length < 2 || !rows[0]) {
+    console.error('CSV 파싱 실패: rows=', rows);
+    alert('CSV 파일 형식이 올바르지 않습니다.');
+    return;
+  }
 
-  const headers = rows[0].map(h => h.trim());
+  const headers = rows[0].map(h => h ? h.trim() : '');
   ordersData = [];
   rawOrderData = []; // 원본 데이터 초기화
 
@@ -401,11 +465,11 @@ function parseOrderData(row) {
     const productCategory = productMapping ? productMapping.type : '기타';
     const productCategoryCode = productMapping ? productMapping.category : 'etc';
 
-    // 재단 요청 감지
-    const hasCuttingRequest = detectCuttingRequest(deliveryMemo);
+    // 확인 필요 감지 (상품코드 4200445704 애견롤매트에만 적용)
+    const hasCuttingRequest = productId === '4200445704' && detectCuttingRequest(deliveryMemo);
 
-    // 마감재 요청 감지
-    const hasFinishingRequest = detectFinishingRequest(deliveryMemo);
+    // 마감재 요청 감지 (퍼즐매트 5994906898, 5994903887에만 적용)
+    const hasFinishingRequest = (productId === '5994906898' || productId === '5994903887') && detectFinishingRequest(deliveryMemo);
 
     // 길이값 추출 (m 단위)
     if (productCategory === 'petRoll') {
@@ -887,7 +951,10 @@ function switchTab(tabId) {
     section.classList.remove('active');
   });
 
-  if (tabId === 'kyungdong') {
+  if (tabId === 'combined') {
+    document.getElementById('combinedSection').style.display = 'block';
+    renderCombinedTable();
+  } else if (tabId === 'kyungdong') {
     document.getElementById('kyungdongSection').style.display = 'block';
     renderKyungdongTable();
   } else if (tabId === 'lozen') {
@@ -900,7 +967,9 @@ function switchTab(tabId) {
 }
 
 function rerenderActiveTab() {
-  if (currentTabId === 'kyungdong') {
+  if (currentTabId === 'combined') {
+    renderCombinedTable();
+  } else if (currentTabId === 'kyungdong') {
     renderKyungdongTable();
   } else if (currentTabId === 'lozen') {
     renderLozenTable();
@@ -1023,14 +1092,19 @@ function updateUI() {
     summarySection.style.display = 'none';
     filterSection.style.display = 'none';
     ordersSection.style.display = 'none';
-    emptyState.style.display = 'block';
+    uploadArea.style.display = 'flex'; // 데이터가 없으면 업로드 영역 다시 표시
+    uploadArea.style.flexDirection = 'column';
+    uploadArea.style.alignItems = 'center';
+    uploadArea.style.justifyContent = 'center';
     return;
   }
-
+  
+  // 데이터가 있으면 업로드 영역 숨기기
+  uploadArea.style.display = 'none';
+  
   summarySection.style.display = 'block';
   filterSection.style.display = 'flex';
   ordersSection.style.display = 'block';
-  emptyState.style.display = 'none';
 
   groupOrdersByRecipient();
   processPacking(); // 자동 패킹 처리
@@ -1051,7 +1125,7 @@ function updateSummary() {
 
   kyungdongCount.textContent = kyungdongBoxes;
   lozenCount.textContent = lozenBoxes;
-  totalCustomers.textContent = uniqueCustomers; // 고객 수
+  totalCustomers.textContent = uniqueCustomers;
   giftOrders.textContent = giftEligible;
 }
 
@@ -1377,6 +1451,13 @@ function processPacking() {
     const processedRollItems = group.rollItems.flatMap(item => applySmartCutting(item));
     group._warnings = collectWarningsFromItems(processedRollItems);
 
+    // 확인 필요 주문 경고 추가 (배송메모 원문 포함) - 프론트엔드 표시용
+    if (group.hasCuttingRequest) {
+      const memos = group.items.map(o => o.deliveryMemo).filter(m => m && m.trim());
+      const uniqueMemos = [...new Set(memos)];
+      group._warnings.unshift(`⚠️ 확인: ${uniqueMemos.join(' / ')}`);
+    }
+
     // 롤매트 합포장 로직: 소형 롤들을 모아서 하나의 박스에
     // 1) 비닐 포장 대상 (대형)은 단독 박스
     // 2) 소형/중형은 합포장 시도
@@ -1606,6 +1687,9 @@ function processPacking() {
       // 박스 내 총 아이템 수량 계산
       const totalQtyInBox = box.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
 
+      // 박스 내 아이템들의 가격 합계 계산 (실제결제금액용)
+      const boxTotalPrice = box.items.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0);
+
       // 박스 내 아이템들의 배송메모만 수집 (중복 제거)
       const boxMemos = collectDeliveryMemos(box.items);
 
@@ -1621,11 +1705,11 @@ function processPacking() {
         phone: group.phone,
         totalQtyInBox: totalQtyInBox, // 추가된 필드
         deliveryMemos: boxMemos, // 배송메모 배열 (중복 제거)
-        totalPrice: group.totalPrice,
+        totalPrice: boxTotalPrice, // 박스별 실제 결제 금액 (아이템 가격 합계)
         giftEligible: group.giftEligible,
         hasCuttingRequest: group.hasCuttingRequest,
         hasFinishingRequest: group.hasFinishingRequest,
-        warnings: box.warnings && box.warnings.length ? box.warnings : collectWarningsFromItems(box.items),
+        warnings: [...(group._warnings || []), ...(box.warnings && box.warnings.length ? box.warnings : collectWarningsFromItems(box.items))],
         courier: courier // 택배사 (lozen/kyungdong)
       });
     });
@@ -1721,6 +1805,7 @@ async function loadShippingFees() {
       // 배송비가 있는 경우만 추가
       if (rowObj['배송비'] && rowObj['배송비'].trim() !== '') {
         const feeData = {
+          순번: rowObj['순번'] || i,
           productGroup: rowObj['제품군'] || '',
           packageType: rowObj['포장종류'] || '',
           fee: parseInt(rowObj['배송비'].replace(/[^0-9]/g, '')) || 0,
@@ -1756,11 +1841,164 @@ async function loadShippingFees() {
     // 전역 변수 확인
     console.log('전역 shippingFees 배열 길이:', shippingFees.length);
     console.log('=== 배송비 CSV 로드 완료 ===', new Date().toISOString());
-
+    
+    // 택배 운임비 테이블 렌더링
+    renderShippingFeesTable();
   } catch (error) {
     console.error('❌ 배송비 데이터 로드 오류:', error);
     console.error('에러 스택:', error.stack);
   }
+}
+
+// ========== 페이지 전환 ==========
+function switchPage(page) {
+  // 사이드바 아이템 활성화
+  sidebarItems.forEach(item => {
+    if (item.getAttribute('data-page') === page) {
+      item.classList.add('active');
+    } else {
+      item.classList.remove('active');
+    }
+  });
+
+  // 페이지 표시/숨김
+  if (page === 'orders') {
+    // 주문 처리 페이지
+    if (ordersSection) ordersSection.style.display = ordersData.length > 0 ? 'block' : 'none';
+    if (summarySection) summarySection.style.display = ordersData.length > 0 ? 'block' : 'none';
+    if (filterSection) filterSection.style.display = ordersData.length > 0 ? 'flex' : 'none';
+    if (uploadArea) uploadArea.style.display = ordersData.length > 0 ? 'none' : 'flex';
+    if (shippingFeesPage) shippingFeesPage.style.display = 'none';
+  } else if (page === 'shipping-fees') {
+    // 택배 운임비 페이지
+    if (ordersSection) ordersSection.style.display = 'none';
+    if (summarySection) summarySection.style.display = 'none';
+    if (filterSection) filterSection.style.display = 'none';
+    if (uploadArea) uploadArea.style.display = 'none';
+    if (shippingFeesPage) shippingFeesPage.style.display = 'block';
+  }
+}
+
+// ========== 택배 운임비 테이블 렌더링 ==========
+function renderShippingFeesTable() {
+  if (!shippingFeesTableBody) return;
+
+  shippingFeesTableBody.innerHTML = '';
+
+  if (shippingFees.length === 0) {
+    shippingFeesTableBody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 2rem; color: var(--text-muted);">배송비 데이터를 불러오는 중...</td></tr>';
+    return;
+  }
+
+  // 기존 데이터 렌더링
+  shippingFees.forEach((fee, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${fee.순번 || index + 1}</td>
+      <td>${fee.productGroup || ''}</td>
+      <td>${fee.packageType || ''}</td>
+      <td>${fee.fee ? formatCurrency(fee.fee) : ''}</td>
+      <td>${fee.width !== null && fee.width !== undefined ? fee.width : ''}</td>
+      <td>${fee.thickness !== null && fee.thickness !== undefined ? fee.thickness : ''}</td>
+      <td>${fee.lengthMin !== null && fee.lengthMin !== undefined ? fee.lengthMin : ''}</td>
+      <td>${fee.lengthMax !== null && fee.lengthMax !== undefined ? fee.lengthMax : ''}</td>
+      <td></td>
+    `;
+    shippingFeesTableBody.appendChild(tr);
+  });
+
+  // 누락된 운임비 항목 찾기 및 추가
+  const missingFees = findMissingShippingFees();
+  missingFees.forEach((missingFee, index) => {
+    const tr = document.createElement('tr');
+    tr.classList.add('missing-fee');
+    tr.innerHTML = `
+      <td>-</td>
+      <td>${missingFee.productGroup}</td>
+      <td>${missingFee.packageType}</td>
+      <td><strong>담당자 확인 필요</strong></td>
+      <td>${missingFee.width || ''}</td>
+      <td>${missingFee.thickness || ''}</td>
+      <td>${missingFee.lengthMin || ''}</td>
+      <td>${missingFee.lengthMax || ''}</td>
+      <td><span style="color: var(--danger);">⚠️ ${missingFee.note}</span></td>
+    `;
+    shippingFeesTableBody.appendChild(tr);
+  });
+}
+
+// 누락된 운임비 항목 찾기
+function findMissingShippingFees() {
+  const missingFees = [];
+  
+  // 제품군별로 그룹화
+  const groupedByProduct = {};
+  shippingFees.forEach(fee => {
+    if (!groupedByProduct[fee.productGroup]) {
+      groupedByProduct[fee.productGroup] = [];
+    }
+    groupedByProduct[fee.productGroup].push(fee);
+  });
+
+  // 각 제품군별로 대박스 초과 운임비 확인
+  Object.keys(groupedByProduct).forEach(productGroup => {
+    const fees = groupedByProduct[productGroup];
+    
+    // 대박스 찾기
+    const largeBoxes = fees.filter(f => f.packageType && f.packageType.includes('대박스'));
+    
+    if (largeBoxes.length > 0) {
+      // 각 대박스의 최대 길이 확인
+      largeBoxes.forEach(largeBox => {
+        if (largeBox.lengthMax) {
+          // 대박스 초과 운임비 누락 확인
+          const hasOverLargeBox = fees.some(f => 
+            f.packageType && f.packageType.includes('대박스') &&
+            f.lengthMin && f.lengthMin > largeBox.lengthMax
+          );
+          
+          if (!hasOverLargeBox && largeBox.lengthMax < 20) { // 20m 미만인 경우만 체크
+            missingFees.push({
+              productGroup: productGroup,
+              packageType: `${largeBox.packageType} 초과`,
+              width: largeBox.width,
+              thickness: largeBox.thickness,
+              lengthMin: largeBox.lengthMax + 0.5,
+              lengthMax: 20, // 임시로 20m까지
+              note: '대박스 초과 운임비 필요'
+            });
+          }
+        }
+      });
+    }
+
+    // 합포장 운임비 확인 (소박스가 2개 이상 합포장되는 경우)
+    const smallBoxes = fees.filter(f => f.packageType && f.packageType.includes('소박스'));
+    if (smallBoxes.length > 0) {
+      // 합포장 운임비가 있는지 확인
+      const hasCombinedFee = fees.some(f => 
+        f.packageType && (f.packageType.includes('합포장') || f.packageType.includes('합배송'))
+      );
+      
+      if (!hasCombinedFee) {
+        // 각 소박스 조합별로 합포장 운임비 필요
+        const uniqueWidths = [...new Set(smallBoxes.map(f => f.width).filter(w => w))];
+        uniqueWidths.forEach(width => {
+          missingFees.push({
+            productGroup: productGroup,
+            packageType: `${width}cm 소박스 합포장`,
+            width: width,
+            thickness: null,
+            lengthMin: null,
+            lengthMax: null,
+            note: '합포장 운임비 필요 (2개 이상 소박스 합포장 시)'
+          });
+        });
+      }
+    }
+  });
+
+  return missingFees;
 }
 
 // 배송비 계산 함수
@@ -1974,6 +2212,62 @@ function calculateShippingFee(box) {
   return matchedFee ? matchedFee.fee : 0;
 }
 
+// ========== 컬럼 설명 (Tooltip) ==========
+const COLUMN_TOOLTIPS = {
+  // 송장화 컬럼
+  '상품주문번호': '스마트스토어에서 발급한 주문번호입니다. 같은 주문번호는 하나의 행으로 합쳐집니다.',
+  '수취인명': '상품을 받는 사람의 이름입니다.',
+  '운임타입': '배송비 결제 방식입니다. 현재는 모두 "선불"로 설정됩니다.',
+  '송장수량': '이 주문이 몇 개의 박스(송장)로 나뉘어 배송되는지 표시합니다. 합포장이면 2개 이상입니다.',
+  '디자인': '주문한 상품의 디자인명입니다. 첫 번째 상품의 디자인이 표시됩니다.',
+  '길이': '롤매트의 경우 길이 정보입니다. 첫 번째 상품의 길이가 표시됩니다.',
+  '수량': '이 주문의 전체 상품 수량입니다. 모든 상품의 수량을 합산한 값입니다.',
+  '디자인+수량': '같은 디자인코드끼리 합쳐서 표시합니다. 예: "코드3mx2"는 코드3m이 2개라는 뜻입니다.',
+  '배송메세지': '구매자가 입력한 배송 메시지입니다. 여러 개면 "/"로 구분됩니다.',
+  '합포장': '여러 박스로 나뉘어 배송되면 "Y", 하나면 "N"입니다.',
+  '비고': '추가 메모를 입력할 수 있는 컬럼입니다.',
+  '주문하신분 핸드폰': '주문을 한 사람의 전화번호입니다.',
+  '받는분 핸드폰': '상품을 받는 사람의 전화번호입니다.',
+  '우편번호': '배송지의 우편번호입니다.',
+  '받는분 주소': '상품을 받을 주소입니다.',
+  '주문자명': '주문을 한 사람의 이름입니다.',
+  '실제결제금액': '이 주문에서 실제로 결제된 금액입니다. 모든 상품의 금액을 합산한 값입니다.',
+  
+  // 경동 발주서 컬럼
+  '받는분': '상품을 받는 사람의 이름입니다. 여러 박스면 "2-1홍길동"처럼 표시됩니다.',
+  '주소': '배송지의 전체 주소입니다.',
+  '상세주소': '배송 메시지가 여기에 표시됩니다.',
+  '운송장번호': '택배사에서 발급하는 운송장 번호입니다. 발송 후 채워집니다.',
+  '고객사주문번호': '스마트스토어 주문번호입니다.',
+  '도착영업소': '배송지 근처 택배 영업소입니다. 발송 후 채워집니다.',
+  '전화번호': '받는 사람의 전화번호입니다.',
+  '기타전화번호': '추가 연락처입니다.',
+  '선불후불': '배송비 결제 방식입니다. 현재는 모두 "선불"입니다.',
+  '품목명': '디자인코드와 수량을 합쳐서 표시합니다. 예: "코드3mx2"',
+  '수량': '이 박스에 들어있는 상품 수량입니다. 경동은 박스당 1개로 처리됩니다.',
+  '포장상태': '비닐 포장이면 "비닐", 박스 포장이면 "박스"입니다.',
+  '가로': '박스의 가로 길이(cm)입니다.',
+  '세로': '박스의 세로 길이(cm)입니다.',
+  '높이': '박스의 높이(cm)입니다.',
+  '무게': '박스의 무게(kg)입니다.',
+  '개별단가': '고정값 50원입니다.',
+  '배송운임': '이 박스의 배송비입니다. 제품 크기와 무게로 자동 계산됩니다.',
+  '기타운임': '고정값 100원입니다.',
+  '별도운임': '고정값 0원입니다.',
+  '할증운임': '고정값 0원입니다.',
+  '도서운임': '고정값 0원입니다.',
+  '메모': '디자인코드가 다시 표시됩니다.',
+  
+  // 로젠 발주서 컬럼
+  '받는분 전화번호': '받는 사람의 전화번호입니다.',
+  '받는분 핸드폰': '받는 사람의 휴대폰 번호입니다.',
+  '운임타입': '배송비 결제 방식입니다. 모두 "선불"입니다.',
+  '송장수량': '이 주문의 박스 개수입니다. 로젠은 박스당 1개로 처리됩니다.',
+  '디자인+수량': '같은 디자인코드끼리 합쳐서 표시합니다.',
+  '합배송여부': '여러 박스로 나뉘어 배송되면 "Y", 하나면 "N"입니다.',
+  '배송운임': '이 박스의 배송비입니다. 제품 크기로 자동 계산됩니다.'
+};
+
 // ========== 발주서 생성 ==========
 
 // 경동택배 발주서 데이터 생성
@@ -1995,10 +2289,35 @@ function getKyungdongData() {
     const dimensions = getDimensions(box);
     const shippingFee = calculateShippingFee(box); // 배송비 계산
 
+    // 디자인+수량 형식 생성 (같은 디자인코드는 합쳐서 수량 표시)
+    let designWithQty = box.designText;
+    if (box.items && box.items.length > 0) {
+      const codeCountMap = new Map();
+      box.items.forEach(item => {
+        let code = '';
+        if (PUZZLE_PRODUCT_IDS.includes(item.productId) || item.productCategory === '퍼즐') {
+          code = generatePuzzleCode(item);
+        } else if (ROLL_PRODUCT_IDS.includes(item.productId) || item.productCategory === '롤') {
+          code = generateRollMatCode(item);
+          if (item.lengthM > 0) code += `${item.lengthM}m`;
+        } else {
+          code = generateDesignCode(item);
+        }
+        const qty = item.quantity || 1;
+        codeCountMap.set(code, (codeCountMap.get(code) || 0) + qty);
+      });
+      designWithQty = Array.from(codeCountMap.entries())
+        .map(([code, qty]) => qty > 1 ? `${code}x${qty}` : code)
+        .join('+');
+    }
+
+    // 상세주소(배송메모) - 출력용이므로 경고 표시 없음
+    const deliveryMemoText = box.deliveryMemos && box.deliveryMemos.length > 0 ? box.deliveryMemos.join(' / ') : '';
+
     const rowData = [
       box.recipientLabel,   // 받는분
       box.address,          // 주소 (전체 주소)
-      box.deliveryMemos && box.deliveryMemos.length > 0 ? box.deliveryMemos.join(' / ') : '', // 상세주소 (실무팀 요청: 배송메모 기록)
+      deliveryMemoText, // 상세주소 (실무팀 요청: 배송메모 기록)
       '', // 운송장번호 (공란)
       box.group.orderId,
       box.zipCode,
@@ -2006,7 +2325,7 @@ function getKyungdongData() {
       box.phone,
       '', // 기타전화번호 (공란)
       '선불', // 선불후불 (기본 선불)
-      box.designText,       // 품목명
+      designWithQty,       // 품목명 (디자인코드x수량)
       1, // 경동은 박스당 1개로 처리
       packagingStatus,
       dimensions.width,
@@ -2019,7 +2338,7 @@ function getKyungdongData() {
       0, // 별도운임 (고정값)
       0, // 할증운임 (고정값)
       0, // 도서운임 (고정값)
-      box.designText        // 메모 (실무팀 요청: 디자인코드/주문내용 줄임말)
+      designWithQty        // 메모 (실무팀 요청: 디자인코드/주문내용 줄임말)
     ];
 
     // 고객 식별 정보를 함께 저장 (색상 구분용)
@@ -2031,6 +2350,8 @@ function getKyungdongData() {
     rowData._phone = box.phone || '';
     rowData._boxIndex = index;
     rowData._warnings = box.warnings || [];
+    rowData._hasCuttingRequest = box.hasCuttingRequest || false;
+    rowData._hasFinishingRequest = box.hasFinishingRequest || false;
 
     data.push(rowData);
   });
@@ -2058,10 +2379,12 @@ function getLozenData() {
   const data = [headers];
 
   lozenOrders.forEach((box, index) => {
-    // 디자인+수량 형식 생성
+    // 디자인+수량 형식 생성 (같은 디자인코드는 합쳐서 수량 표시)
     let designWithQty = box.designText;
     if (box.items && box.items.length > 0) {
-      designWithQty = box.items.map(item => {
+      // 아이템별 디자인코드 생성 후 같은 코드끼리 수량 합산
+      const codeCountMap = new Map();
+      box.items.forEach(item => {
         let code = '';
         if (PUZZLE_PRODUCT_IDS.includes(item.productId) || item.productCategory === '퍼즐') {
           code = generatePuzzleCode(item);
@@ -2071,11 +2394,19 @@ function getLozenData() {
         } else {
           code = generateDesignCode(item);
         }
-        return `${code}x${item.quantity || 1}`;
-      }).join('+');
+        const qty = item.quantity || 1;
+        codeCountMap.set(code, (codeCountMap.get(code) || 0) + qty);
+      });
+      // 코드x수량 형태로 조합
+      designWithQty = Array.from(codeCountMap.entries())
+        .map(([code, qty]) => qty > 1 ? `${code}x${qty}` : code)
+        .join('+');
     }
 
     const shippingFee = calculateShippingFee(box); // 배송비 계산
+
+    // 배송메세지 - 출력용이므로 경고 표시 없음
+    const deliveryMemoText = box.deliveryMemos && box.deliveryMemos.length > 0 ? box.deliveryMemos.join(' / ') : '';
 
     const rowData = [
       box.recipientLabel,
@@ -2086,7 +2417,7 @@ function getLozenData() {
       '선불',
       1,
       designWithQty,
-      box.deliveryMemos && box.deliveryMemos.length > 0 ? box.deliveryMemos.join(' / ') : '',
+      deliveryMemoText,
       box.isCombined ? 'Y' : 'N',
       shippingFee || '' // 배송운임 (배송비 계산값)
     ];
@@ -2100,6 +2431,8 @@ function getLozenData() {
     rowData._phone = box.phone || '';
     rowData._boxIndex = index;
     rowData._warnings = box.warnings || [];
+    rowData._hasCuttingRequest = box.hasCuttingRequest || false;
+    rowData._hasFinishingRequest = box.hasFinishingRequest || false;
 
     data.push(rowData);
   });
@@ -2111,6 +2444,196 @@ function getLozenData() {
 function exportToLozen() {
   const data = getLozenData();
   downloadExcel(data, '로젠발주서');
+}
+
+// 송장화 데이터 생성 (Excel 다운로드)
+function exportToCombined() {
+  const data = getCombinedData();
+  downloadExcel(data, '송장화');
+}
+
+// 가공데이터(송장화) 통합 데이터 생성 (주문별)
+function getCombinedData() {
+  if (packedOrders.length === 0) {
+    processPacking();
+  }
+
+  // 컬럼: 상품주문번호, 수취인명, 운임타입, 송장수량, 디자인, 길이, 수량, 디자인+수량, 배송메세지, 합포장, 비고, 주문하신분 핸드폰, 받는분 핸드폰, 우편번호, 받는분 주소, 주문자명, 실제결제금액
+  const headers = ['상품주문번호', '수취인명', '운임타입', '송장수량', '디자인', '길이', '수량', '디자인+수량', '배송메세지', '합포장', '비고', '주문하신분 핸드폰', '받는분 핸드폰', '우편번호', '받는분 주소', '주문자명', '실제결제금액'];
+  const data = [headers];
+
+  // 주문별로 그룹화 (groupedOrders 기반)
+  Object.values(groupedOrders).forEach(group => {
+    // 해당 그룹의 박스 수 계산 (송장수량)
+    const groupBoxes = packedOrders.filter(box => box.group === group);
+    const invoiceCount = groupBoxes.length || 1;
+
+    // 주문의 모든 아이템을 합쳐서 디자인+수량 생성
+    const codeCountMap = new Map();
+    let totalQty = 0;
+    let design = '';
+    let length = '';
+
+    group.items.forEach(item => {
+      let code = '';
+      if (PUZZLE_PRODUCT_IDS.includes(item.productId) || item.productCategory === '퍼즐') {
+        code = generatePuzzleCode(item);
+      } else if (ROLL_PRODUCT_IDS.includes(item.productId) || item.productCategory === '롤') {
+        code = generateRollMatCode(item);
+        if (item.lengthM > 0) code += `${item.lengthM}m`;
+      } else {
+        code = generateDesignCode(item);
+      }
+      const qty = item.quantity || 1;
+      codeCountMap.set(code, (codeCountMap.get(code) || 0) + qty);
+      totalQty += qty;
+
+      // 첫 번째 아이템에서 디자인, 길이 추출
+      if (!design && item.design) design = item.design;
+      if (!length && item.length) length = item.length;
+    });
+
+    const designWithQty = Array.from(codeCountMap.entries())
+      .map(([code, qty]) => qty > 1 ? `${code}x${qty}` : code)
+      .join('+');
+
+    // 배송메모 수집 (중복 제거)
+    const deliveryMemos = group.items
+      .map(item => item.deliveryMemo)
+      .filter(memo => memo && memo.trim())
+      .filter((memo, index, arr) => arr.indexOf(memo) === index);
+    const deliveryMemoText = deliveryMemos.join(' / ');
+
+    // 합포장 여부 (박스가 2개 이상이면 합포장)
+    const isCombined = invoiceCount > 1 ? 'Y' : 'N';
+
+    // 실제결제금액: 주문의 모든 상품의 '최종 상품별 총 주문금액' 합산
+    const actualPayment = group.items.reduce((sum, item) => sum + (item.price || 0), 0);
+
+    const rowData = [
+      group.orderId || '',                // 상품주문번호 (주문번호)
+      group.customerName || '',            // 수취인명
+      '선불',                              // 운임타입
+      invoiceCount,                        // 송장수량 (박스 개수)
+      design,                              // 디자인
+      length,                              // 길이
+      totalQty,                           // 수량 (전체 수량)
+      designWithQty,                      // 디자인+수량
+      deliveryMemoText,                   // 배송메세지
+      isCombined,                         // 합포장
+      '',                                 // 비고
+      group.phone || '',                  // 주문하신분 핸드폰
+      group.phone || '',                  // 받는분 핸드폰
+      group.zipCode || '',                // 우편번호
+      group.address || '',                // 받는분 주소
+      group.customerName || '',           // 주문자명
+      actualPayment                       // 실제결제금액 (정산예정금액)
+    ];
+
+    // 메타데이터 (화면 표시용)
+    rowData._customerKey = makeCustomerKey({ address: group.address, phone: group.phone });
+    rowData._hasCuttingRequest = group.hasCuttingRequest || false;
+    rowData._hasFinishingRequest = group.hasFinishingRequest || false;
+
+    data.push(rowData);
+  });
+
+  return data;
+}
+
+// 가공데이터(송장화) 테이블 렌더링
+function renderCombinedTable() {
+  const table = document.getElementById('combinedTable');
+  const thead = table.querySelector('thead');
+  const tbody = document.getElementById('combinedTableBody');
+
+  thead.innerHTML = '';
+  tbody.innerHTML = '';
+
+  if (packedOrders.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="17" style="text-align: center; padding: 2rem; color: var(--text-muted);">데이터가 없습니다.</td></tr>';
+    return;
+  }
+
+  const data = getCombinedData();
+  if (data.length < 2) {
+    tbody.innerHTML = '<tr><td colspan="17" style="text-align: center; padding: 2rem; color: var(--text-muted);">유효한 데이터가 없습니다.</td></tr>';
+    return;
+  }
+
+  // 헤더 생성
+  const headers = data[0];
+  const trHead = document.createElement('tr');
+  headers.forEach(header => {
+    const th = document.createElement('th');
+    th.className = 'tooltip-header';
+    
+    // 헤더 텍스트와 아이콘 추가
+    const headerText = document.createTextNode(header);
+    th.appendChild(headerText);
+    
+    // Tooltip 추가
+    if (COLUMN_TOOLTIPS[header]) {
+      th.setAttribute('data-tooltip', COLUMN_TOOLTIPS[header]);
+      th.style.cursor = 'help';
+      
+      // "i" 아이콘 추가
+      const icon = document.createElement('span');
+      icon.className = 'tooltip-icon';
+      icon.textContent = 'ⓘ';
+      icon.setAttribute('aria-label', '도움말');
+      th.appendChild(icon);
+    }
+    
+    trHead.appendChild(th);
+  });
+  thead.appendChild(trHead);
+
+  // 데이터 생성 (고객별로 색상 구분)
+  const customerGroupIndexByKey = new Map();
+  let nextGroupIndex = 0;
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const tr = document.createElement('tr');
+
+    // 고객 식별 키 생성
+    const customerKey = row._customerKey || '';
+
+    // 같은 고객 키는 항상 같은 그룹 인덱스 사용
+    let groupIndex = 0;
+    if (customerKey) {
+      if (!customerGroupIndexByKey.has(customerKey)) {
+        nextGroupIndex += 1;
+        customerGroupIndexByKey.set(customerKey, nextGroupIndex);
+      }
+      groupIndex = customerGroupIndexByKey.get(customerKey);
+    }
+
+    // 그룹별 배경색 적용 (흰색/회색 번갈아)
+    if (groupIndex % 2 === 0) {
+      tr.classList.add('raw-row-group-even');
+    } else {
+      tr.classList.add('raw-row-group-odd');
+    }
+
+    // 확인 필요 행 (붉은색) - 애견롤매트 재단요청
+    if (row._hasCuttingRequest) {
+      tr.classList.add('anomaly-row');
+    }
+    // 마감재 요청 행 (노란색) - 퍼즐매트 마감재
+    if (row._hasFinishingRequest) {
+      tr.classList.add('finishing-row');
+    }
+
+    headers.forEach((header, index) => {
+      const td = document.createElement('td');
+      td.textContent = row[index] !== undefined && row[index] !== null ? row[index] : '';
+      tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+  }
 }
 
 // 경동 발주서 테이블 렌더링
@@ -2140,7 +2663,25 @@ function renderKyungdongTable() {
   const trHead = document.createElement('tr');
   headers.forEach(header => {
     const th = document.createElement('th');
-    th.textContent = header;
+    th.className = 'tooltip-header';
+    
+    // 헤더 텍스트와 아이콘 추가
+    const headerText = document.createTextNode(header);
+    th.appendChild(headerText);
+    
+    // Tooltip 추가
+    if (COLUMN_TOOLTIPS[header]) {
+      th.setAttribute('data-tooltip', COLUMN_TOOLTIPS[header]);
+      th.style.cursor = 'help';
+      
+      // "i" 아이콘 추가
+      const icon = document.createElement('span');
+      icon.className = 'tooltip-icon';
+      icon.textContent = 'ⓘ';
+      icon.setAttribute('aria-label', '도움말');
+      th.appendChild(icon);
+    }
+    
     trHead.appendChild(th);
   });
   thead.appendChild(trHead);
@@ -2190,9 +2731,14 @@ function renderKyungdongTable() {
     } else {
       tr.classList.add('raw-row-group-odd');
     }
-    if (row._warnings && row._warnings.length > 0) {
+
+    // 확인 필요 행 (붉은색) - 애견롤매트 재단요청
+    if (row._hasCuttingRequest) {
       tr.classList.add('anomaly-row');
-      tr.title = row._warnings.join('\n');
+    }
+    // 마감재 요청 행 (노란색) - 퍼즐매트 마감재
+    if (row._hasFinishingRequest) {
+      tr.classList.add('finishing-row');
     }
 
     headers.forEach((header, index) => {
@@ -2232,7 +2778,25 @@ function renderLozenTable() {
   const trHead = document.createElement('tr');
   headers.forEach(header => {
     const th = document.createElement('th');
-    th.textContent = header;
+    th.className = 'tooltip-header';
+    
+    // 헤더 텍스트와 아이콘 추가
+    const headerText = document.createTextNode(header);
+    th.appendChild(headerText);
+    
+    // Tooltip 추가
+    if (COLUMN_TOOLTIPS[header]) {
+      th.setAttribute('data-tooltip', COLUMN_TOOLTIPS[header]);
+      th.style.cursor = 'help';
+      
+      // "i" 아이콘 추가
+      const icon = document.createElement('span');
+      icon.className = 'tooltip-icon';
+      icon.textContent = 'ⓘ';
+      icon.setAttribute('aria-label', '도움말');
+      th.appendChild(icon);
+    }
+    
     trHead.appendChild(th);
   });
   thead.appendChild(trHead);
@@ -2282,9 +2846,14 @@ function renderLozenTable() {
     } else {
       tr.classList.add('raw-row-group-odd');
     }
-    if (row._warnings && row._warnings.length > 0) {
+
+    // 확인 필요 행 (붉은색) - 애견롤매트 재단요청
+    if (row._hasCuttingRequest) {
       tr.classList.add('anomaly-row');
-      tr.title = row._warnings.join('\n');
+    }
+    // 마감재 요청 행 (노란색) - 퍼즐매트 마감재
+    if (row._hasFinishingRequest) {
+      tr.classList.add('finishing-row');
     }
 
     headers.forEach((header, index) => {
@@ -2451,6 +3020,9 @@ function showPackingDetail(box) {
 
 // 테이블 뷰 렌더링
 function renderTableView() {
+  // ordersTableBody가 HTML에 없으므로 null 체크
+  if (!ordersTableBody) return;
+
   ordersTableBody.innerHTML = '';
 
   filteredOrders.forEach(order => {

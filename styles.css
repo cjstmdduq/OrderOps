@@ -60,6 +60,12 @@ body {
   flex-direction: column;
 }
 
+.main-wrapper {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
 /* ========== 헤더 ========== */
 .header {
   background: var(--surface);
@@ -102,6 +108,62 @@ body {
   border-radius: 999px;
 }
 
+/* ========== 사이드바 ========== */
+.sidebar {
+  width: 240px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 1.5rem 0;
+  flex-shrink: 0;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0 0.75rem;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  text-align: left;
+  width: 100%;
+}
+
+.sidebar-item:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.sidebar-item.active {
+  background: var(--primary);
+  color: white;
+}
+
+.sidebar-item.active:hover {
+  background: var(--primary-hover);
+}
+
+.sidebar-icon {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.sidebar-text {
+  flex: 1;
+}
+
 /* ========== 메인 컨텐츠 ========== */
 .main-content {
   flex: 1;
@@ -109,6 +171,43 @@ body {
   max-width: 1400px;
   margin: 0 auto;
   width: 100%;
+  overflow-y: auto;
+}
+
+/* ========== 페이지 컨텐츠 ========== */
+.page-content {
+  padding: 1.5rem;
+}
+
+.page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.missing-fee-notice {
+  background: #FEF2F2;
+  border: 1px solid #FEE2E2;
+  border-left: 4px solid var(--danger);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.missing-fee-notice p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.missing-fee-notice strong {
+  color: var(--danger);
+  font-weight: 600;
 }
 
 /* ========== 업로드 섹션 ========== */
@@ -124,6 +223,10 @@ body {
   background: var(--surface);
   cursor: pointer;
   transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .upload-area:hover {
@@ -233,6 +336,7 @@ body {
   /* Hover effect removed */
 }
 
+
 .card-icon {
   font-size: 1.5rem;
 }
@@ -251,6 +355,63 @@ body {
 .card-label {
   font-size: 0.75rem;
   color: var(--text-secondary);
+}
+
+/* ========== 참고 안내사항 ========== */
+.notice-box {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: 1.5rem;
+  margin-top: 1.5rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.notice-box h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.notice-box ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notice-box li {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 0.75rem;
+  padding-left: 1.25rem;
+  position: relative;
+}
+
+.notice-box li:last-child {
+  margin-bottom: 0;
+}
+
+.notice-box li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: var(--warning);
+  font-weight: bold;
+}
+
+.notice-box li strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.notice-box .highlight-yellow {
+  background-color: #FEFCE8;
+  color: #854D0E;
+  padding: 0.125rem 0.375rem;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 /* ========== 필터 섹션 ========== */
@@ -312,7 +473,8 @@ body {
   background: var(--surface);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  overflow: hidden;
+  /* tooltip 이 헤더 밖으로 나갈 수 있도록 overflow visible 로 변경 */
+  overflow: visible;
 }
 
 /* ========== 탭 네비게이션 ========== */
@@ -369,14 +531,26 @@ body {
 
 #rawSection .table-container,
 #kyungdongSection .table-container,
-#lozenSection .table-container {
+#lozenSection .table-container,
+#shippingFeesPage .table-container {
   max-height: 600px;
   overflow: auto;
+  position: relative;
+}
+
+#rawSection .table-container thead,
+#kyungdongSection .table-container thead,
+#lozenSection .table-container thead,
+#shippingFeesPage .table-container thead {
+  position: relative;
+  z-index: 100;
 }
 
 #rawTable,
+#combinedTable,
 #kyungdongTable,
-#lozenTable {
+#lozenTable,
+#shippingFeesTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8rem;
@@ -384,10 +558,14 @@ body {
 
 #rawTable th,
 #rawTable td,
+#combinedTable th,
+#combinedTable td,
 #kyungdongTable th,
 #kyungdongTable td,
 #lozenTable th,
-#lozenTable td {
+#lozenTable td,
+#shippingFeesTable th,
+#shippingFeesTable td {
   padding: 0.5rem 0.75rem;
   text-align: left;
   border: 1px solid var(--border);
@@ -395,27 +573,114 @@ body {
 }
 
 #rawTable th,
+#combinedTable th,
 #kyungdongTable th,
-#lozenTable th {
+#lozenTable th,
+#shippingFeesTable th {
   background: var(--background);
   font-weight: 600;
   color: var(--text-secondary);
   position: sticky;
   top: 0;
+  z-index: 10;
+  overflow: visible;
+}
+
+/* Tooltip 스타일 */
+.tooltip-header {
+  position: relative;
+}
+
+.tooltip-header[data-tooltip] {
+  position: relative;
+}
+
+.tooltip-icon {
+  display: inline-block;
+  margin-left: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--primary);
+  font-weight: normal;
+  vertical-align: middle;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.tooltip-header:hover .tooltip-icon {
+  opacity: 1;
+}
+
+.tooltip-header[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 8px); /* 헤더 아래쪽으로 표시 */
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.75rem 1rem;
+  background: #0F172A;
+  color: white;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: normal;
+  max-width: 300px;
+  min-width: 200px;
+  width: max-content;
+  border-radius: var(--radius-sm);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -4px rgba(0, 0, 0, 0.3);
+  z-index: 10000 !important;
+  pointer-events: none;
+  font-weight: normal;
+  text-align: left;
+  word-wrap: break-word;
+}
+
+.tooltip-header[data-tooltip]:hover::before {
+  content: '';
+  position: absolute;
+  top: 100%; /* 헤더 아래쪽으로 표시 */
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-bottom-color: #0F172A; /* 아래쪽 화살표 */
+  z-index: 10001 !important;
+  pointer-events: none;
 }
 
 #rawTable tbody tr:hover,
+#combinedTable tbody tr:hover,
 #kyungdongTable tbody tr:hover,
-#lozenTable tbody tr:hover {
+#lozenTable tbody tr:hover,
+#shippingFeesTable tbody tr:hover {
   background: var(--primary-light) !important;
 }
 
+/* 운임비 테이블 특별 스타일 */
+#shippingFeesTable {
+  background: var(--surface);
+}
+
+#shippingFeesTable tbody tr.missing-fee {
+  background: #FEF2F2 !important;
+  border-left: 3px solid var(--danger);
+}
+
+#shippingFeesTable tbody tr.missing-fee:hover {
+  background: #FEE2E2 !important;
+}
+
+#shippingFeesTable tbody tr.missing-fee td {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
 /* 같은 수취인 그룹별 배경색 */
-#rawTable tbody tr.raw-row-group-even {
+#rawTable tbody tr.raw-row-group-even,
+#combinedTable tbody tr.raw-row-group-even {
   background: #ffffff;
 }
 
-#rawTable tbody tr.raw-row-group-odd {
+#rawTable tbody tr.raw-row-group-odd,
+#combinedTable tbody tr.raw-row-group-odd {
   background: #f8f9fa;
 }
 
@@ -926,7 +1191,11 @@ body {
 }
 
 .anomaly-row {
-  box-shadow: inset 4px 0 0 #e11d48;
+  background-color: #fef2f2 !important;
+}
+
+.finishing-row {
+  background-color: #fefce8 !important;
 }
 
 /* 스타 마킹 */

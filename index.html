@@ -22,8 +22,24 @@
       </div>
     </header>
 
-    <!-- 메인 컨텐츠 -->
-    <main class="main-content">
+    <!-- 메인 컨텐츠 래퍼 -->
+    <div class="main-wrapper">
+      <!-- 좌측 사이드바 -->
+      <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+          <button class="sidebar-item active" data-page="orders">
+            <span class="sidebar-icon">📦</span>
+            <span class="sidebar-text">주문 처리</span>
+          </button>
+          <button class="sidebar-item" data-page="shipping-fees">
+            <span class="sidebar-icon">💰</span>
+            <span class="sidebar-text">택배 운임비</span>
+          </button>
+        </nav>
+      </aside>
+
+      <!-- 메인 컨텐츠 -->
+      <main class="main-content">
       <!-- 파일 업로드 섹션 -->
       <section class="upload-section">
         <div class="upload-area" id="uploadArea">
@@ -37,6 +53,7 @@
           </p>
           <input type="file" id="fileInput" accept=".csv" hidden>
           <button class="upload-btn" id="uploadBtn">파일 선택</button>
+          <button class="upload-btn" id="testDataBtn" style="margin-top: 0.75rem;">테스트 데이터 불러오기</button>
         </div>
         <div class="file-info" id="fileInfo" style="display: none;">
           <span class="file-name" id="fileName"></span>
@@ -75,6 +92,15 @@
               <span class="card-label">사은품 대상</span>
             </div>
           </div>
+        </div>
+        <div class="notice-box">
+          <h3>⚠️ 참고 안내사항</h3>
+          <ul>
+            <li>
+              재단 요청(애견롤매트 4200445704) 및 마감재 요청(퍼즐매트)은 자동 감지되지만, 
+              <strong>반드시 직접 확인</strong>해주세요.
+            </li>
+          </ul>
         </div>
       </section>
 
@@ -117,19 +143,47 @@
         <div class="section-header">
           <h2>주문 목록</h2>
           <div class="section-actions">
+            <button class="action-btn" id="exportCombinedBtn">송장화</button>
             <button class="action-btn" id="exportKyungdongBtn">경동 발주서</button>
-            <button class="action-btn primary" id="exportLozenBtn">로젠 발주서</button>
+            <button class="action-btn" id="exportLozenBtn">로젠 발주서</button>
           </div>
         </div>
         
         <!-- 탭 버튼 컨테이너 -->
         <div class="tab-container">
-          <button class="tab-btn active" data-tab="kyungdong">경동</button>
+          <button class="tab-btn active" data-tab="raw">원본 데이터</button>
+          <button class="tab-btn" data-tab="combined">송장화</button>
+          <button class="tab-btn" data-tab="kyungdong">경동</button>
           <button class="tab-btn" data-tab="lozen">로젠</button>
-          <button class="tab-btn" data-tab="raw">원본 데이터</button>
         </div>
 
-        <div id="kyungdongSection" class="content-section active">
+        <div id="rawSection" class="content-section active">
+          <div class="table-container">
+            <table id="rawTable">
+              <thead>
+                <!-- JS로 헤더 렌더링 -->
+              </thead>
+              <tbody id="rawTableBody">
+                <!-- JS로 렌더링 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="combinedSection" class="content-section">
+          <div class="table-container">
+            <table id="combinedTable">
+              <thead>
+                <!-- JS로 헤더 렌더링 -->
+              </thead>
+              <tbody id="combinedTableBody">
+                <!-- JS로 렌더링 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="kyungdongSection" class="content-section">
           <div class="table-container">
             <table id="kyungdongTable">
               <thead>
@@ -154,28 +208,39 @@
             </table>
           </div>
         </div>
-        
-        <div id="rawSection" class="content-section">
-          <div class="table-container">
-            <table id="rawTable">
-              <thead>
-                <!-- JS로 헤더 렌더링 -->
-              </thead>
-              <tbody id="rawTableBody">
-                <!-- JS로 렌더링 -->
-              </tbody>
-            </table>
-          </div>
-        </div>
       </section>
 
-      <!-- 빈 상태 -->
-      <section class="empty-state" id="emptyState">
-        <div class="empty-icon"></div>
-        <h3>주문 데이터를 불러와주세요</h3>
-        <p>상단의 업로드 영역에 스마트스토어에서 다운로드한 주문 파일을 업로드하세요.</p>
+      <!-- 택배 운임비 페이지 -->
+      <section class="page-content" id="shippingFeesPage" style="display: none;">
+        <div class="page-header">
+          <h2>택배 운임비</h2>
+        </div>
+        <div class="missing-fee-notice">
+          <p><strong>⚠️ 누락된 운임비 항목:</strong> 대박스 초과 및 합포장 운임비가 누락되어 있습니다. 담당자에게 확인하여 데이터를 채워주세요.</p>
+        </div>
+        <div class="table-container">
+          <table id="shippingFeesTable">
+            <thead>
+              <tr>
+                <th>순번</th>
+                <th>제품군</th>
+                <th>포장종류</th>
+                <th>배송비</th>
+                <th>폭(cm)</th>
+                <th>두께(cm)</th>
+                <th>길이 최소(m)</th>
+                <th>길이 최대(m)</th>
+                <th>비고</th>
+              </tr>
+            </thead>
+            <tbody id="shippingFeesTableBody">
+              <!-- JS로 렌더링 -->
+            </tbody>
+          </table>
+        </div>
       </section>
     </main>
+    </div>
 
     <!-- 주문 상세 모달 -->
     <div class="modal" id="orderModal" style="display: none;">
