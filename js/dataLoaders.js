@@ -167,18 +167,21 @@ export function calculateShippingFee(box, shippingFees) {
     const maxThickness = thicknessValues.length > 0 ? Math.max(...thicknessValues) : 0;
     const totalPuzzleCount = box.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
 
-    // 제품군 매핑
+    // 제품군 매핑 (categoryCode가 없으면 box.type을 fallback으로 사용)
     let productGroup = '';
     if (categoryCode === 'babyRoll' || categoryCode === 'petRoll' || categoryCode === 'roll') {
         productGroup = 'PVC롤매트';
     } else if (categoryCode === 'peRoll') {
         productGroup = 'PE롤매트';
-    } else if (categoryCode === 'puzzle') {
+    } else if (categoryCode === 'puzzle' || box.type === 'puzzle') {
         productGroup = '퍼즐매트';
     } else if (categoryCode === 'tpu') {
         productGroup = 'TPU매트';
     } else if (categoryCode === 'wallpaper') {
         productGroup = '단열벽지';
+    } else if (categoryCode === 'etc' || box.type === 'other') {
+        // 샘플 제품은 고정 배송비 4500원
+        return 4500;
     } else {
         return 0;
     }
@@ -196,7 +199,12 @@ export function calculateShippingFee(box, shippingFees) {
     let largeBoxFee = null;
 
     for (const fee of shippingFees) {
-        if (fee.productGroup !== productGroup) continue;
+        // 퍼즐매트는 "퍼즐매트 2.5cm", "퍼즐매트 4.0cm" 형태로 저장되어 있으므로 포함 여부로 확인
+        const isProductGroupMatch = productGroup === '퍼즐매트'
+            ? fee.productGroup.includes('퍼즐매트')
+            : fee.productGroup === productGroup;
+
+        if (!isProductGroupMatch) continue;
 
         let packageMatch = packageType === '' || fee.packageType === packageType ||
             (fee.packageType.includes('강화비닐') && packageType.includes('강화비닐'));

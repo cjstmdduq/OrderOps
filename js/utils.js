@@ -149,6 +149,36 @@ export function downloadExcel(data, filename) {
     });
 
     const ws = XLSX.utils.aoa_to_sheet(cleanData);
+
+    // 주문번호 컬럼을 텍스트 형식으로 설정 (과학적 표기법 방지)
+    const range = XLSX.utils.decode_range(ws['!ref']);
+    const headers = cleanData[0] || [];
+
+    // 주문번호 관련 컬럼 인덱스 찾기
+    const orderNumberColumns = [];
+    headers.forEach((header, idx) => {
+        if (header && (
+            header.includes('주문번호') ||
+            header.includes('상품주문번호') ||
+            header.includes('운송장번호') ||
+            header.includes('고객사주문번호')
+        )) {
+            orderNumberColumns.push(idx);
+        }
+    });
+
+    // 해당 컬럼의 모든 셀을 텍스트 형식으로 설정
+    for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        orderNumberColumns.forEach(C => {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C });
+            if (ws[cellAddress]) {
+                // 셀 타입을 문자열로 강제 지정
+                ws[cellAddress].t = 's';
+                ws[cellAddress].v = String(ws[cellAddress].v);
+            }
+        });
+    }
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
 

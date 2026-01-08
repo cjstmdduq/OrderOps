@@ -481,6 +481,7 @@ body {
   padding: 1rem 1.5rem 0;
   border-bottom: 1px solid var(--border);
   background: var(--background);
+  align-items: flex-end;
 }
 
 .tab-btn {
@@ -509,6 +510,16 @@ body {
   font-weight: 600;
 }
 
+/* 탭 그룹 구분선 */
+.tab-divider {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+  margin: 0 0.5rem;
+  align-self: center;
+  margin-bottom: 0.5rem;
+}
+
 /* ========== 콘텐츠 섹션 ========== */
 .content-section {
   display: none;
@@ -527,7 +538,9 @@ body {
 }
 
 #rawSection .table-container,
-#kyungdongSection .table-container,
+#kyungdong1Section .table-container,
+#kyungdong2Section .table-container,
+#kyungdong3Section .table-container,
 #logenSection .table-container,
 #shippingSection .table-container,
 #shippingFeesPage .table-container {
@@ -537,7 +550,9 @@ body {
 }
 
 #rawSection .table-container thead,
-#kyungdongSection .table-container thead,
+#kyungdong1Section .table-container thead,
+#kyungdong2Section .table-container thead,
+#kyungdong3Section .table-container thead,
 #logenSection .table-container thead,
 #shippingSection .table-container thead,
 #shippingFeesPage .table-container thead {
@@ -548,7 +563,9 @@ body {
 #rawTable,
 #combined1Table,
 #combined2Table,
-#kyungdongTable,
+#kyungdong1Table,
+#kyungdong2Table,
+#kyungdong3Table,
 #logenTable,
 #shippingTable,
 #shippingFeesTable {
@@ -563,8 +580,12 @@ body {
 #combined1Table td,
 #combined2Table th,
 #combined2Table td,
-#kyungdongTable th,
-#kyungdongTable td,
+#kyungdong1Table th,
+#kyungdong1Table td,
+#kyungdong2Table th,
+#kyungdong2Table td,
+#kyungdong3Table th,
+#kyungdong3Table td,
 #logenTable th,
 #logenTable td,
 #shippingTable th,
@@ -583,7 +604,9 @@ body {
 #rawTable th,
 #combined1Table th,
 #combined2Table th,
-#kyungdongTable th,
+#kyungdong1Table th,
+#kyungdong2Table th,
+#kyungdong3Table th,
 #logenTable th,
 #shippingTable th,
 #shippingFeesTable th {
@@ -682,7 +705,9 @@ body {
 #rawTable tbody tr:hover,
 #combined1Table tbody tr:hover,
 #combined2Table tbody tr:hover,
-#kyungdongTable tbody tr:hover,
+#kyungdong1Table tbody tr:hover,
+#kyungdong2Table tbody tr:hover,
+#kyungdong3Table tbody tr:hover,
 #logenTable tbody tr:hover,
 #shippingTable tbody tr:hover,
 #shippingFeesTable tbody tr:hover {
@@ -721,14 +746,20 @@ body {
   background: #f8f9fa;
 }
 
-/* 경동/로젠 테이블: 고객(그룹) 단위로 배경색 */
-#kyungdongTable tbody tr.raw-row-group-even,
-#logenTable tbody tr.raw-row-group-even {
+/* 경동/로젠/발송처리 테이블: 고객(그룹) 단위로 배경색 */
+#kyungdong1Table tbody tr.raw-row-group-even,
+#kyungdong2Table tbody tr.raw-row-group-even,
+#kyungdong3Table tbody tr.raw-row-group-even,
+#logenTable tbody tr.raw-row-group-even,
+#shippingTable tbody tr.raw-row-group-even {
   background: #ffffff;
 }
 
-#kyungdongTable tbody tr.raw-row-group-odd,
-#logenTable tbody tr.raw-row-group-odd {
+#kyungdong1Table tbody tr.raw-row-group-odd,
+#kyungdong2Table tbody tr.raw-row-group-odd,
+#kyungdong3Table tbody tr.raw-row-group-odd,
+#logenTable tbody tr.raw-row-group-odd,
+#shippingTable tbody tr.raw-row-group-odd {
   background: #f8f9fa;
 }
 
@@ -1336,6 +1367,12 @@ body {
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* 미등록 텍스트 스타일 */
+.unregistered-text {
+  color: #dc2626 !important;
+  font-weight: 600;
 }
 
 /* 포장 방식 뱃지 */

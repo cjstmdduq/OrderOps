@@ -4,21 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "6a07c8334353c2e7",
+        "id": "cdb5735e2aa3e224",
         "type": "tabs",
         "children": [
           {
-            "id": "04efaf0bac415c99",
+            "id": "211add4241056c07",
             "type": "leaf",
             "state": {
-              "type": "markdown",
-              "state": {
-                "file": "발주 프로그램기획/작업계획표.md",
-                "mode": "source",
-                "source": false
-              },
+              "type": "empty",
+              "state": {},
               "icon": "lucide-file",
-              "title": "작업계획표"
+              "title": "새 탭"
             }
           }
         ]
@@ -183,10 +179,19 @@
       "bases:새 베이스 생성하기": false
     }
   },
-  "active": "04efaf0bac415c99",
+  "active": "964eff451fdf2d55",
   "lastOpenFiles": [
-    "발주 프로그램기획/추가_확인사항.md",
+    "js/dataLoaders.js",
+    "js/packing.js",
+    "js/parsers.js",
+    "js/utils.js",
+    "js/constants.js",
+    "js",
+    "조은란D 제공자료/2026.01.02/~$20260102 엑셀작업.xlsx",
+    "로드맵.canvas",
+    "생각정리",
     "발주 프로그램기획/작업계획표.md",
+    "발주 프로그램기획/추가_확인사항.md",
     "발주 프로그램기획/초도기획.md",
     "조은란 D 제공자료에 대한 주석.md",
     "조은란D 제공자료 2025.12.16/~$1차 로젠.xlsx",
@@ -198,12 +203,6 @@
     "발주 프로그램기획/따사룸 제품 정보 및 스펙.md",
     "발주 프로그램기획/패킹 알고리즘 관련 정보.md",
     "필요한 결과물.md",
-    "app.js",
-    "styles.css",
-    "index.html",
-    "스마트스토어_전체주문발주발송관리_20251215_1341.csv",
-    "스마트스토어_전체주문발주발송관리_20251215_1341.xlsx",
-    "~$스마트스토어_전체주문발주발송관리_20251215_1341.xlsx",
     "발주 프로그램기획/제품 리스트업.md"
   ]
 }

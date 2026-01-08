@@ -1,0 +1,32 @@
+{
+	"nodes":[
+		{"id":"f7b24df13070dc16","type":"group","x":-840,"y":-256,"width":420,"height":340,"label":"패킹계산"},
+		{"id":"45eb02094b78474f","type":"group","x":-360,"y":-256,"width":240,"height":340,"label":"파일화"},
+		{"id":"8176750a06524cad","x":85,"y":-293,"width":150,"height":207,"type":"group","label":"택배사양식"},
+		{"id":"3774f0f3891157db","x":-19,"y":-2,"width":179,"height":172,"type":"group","label":"내부자료처리"},
+		{"id":"14ca611abc221be9","type":"text","text":"로젠 택배","x":105,"y":-170,"width":110,"height":64,"color":"3"},
+		{"id":"8805857010c673fd","type":"text","text":"경동 택배","x":105,"y":-273,"width":110,"height":64,"color":"3"},
+		{"id":"8bdc4469d8516216","type":"text","text":"패킹 계산\n- 합포장 등 어떻게 포장하는지?\n- 택배사 분할하기\n- 사은품은 없는지?\n- 송장화 작업\n","x":-820,"y":-236,"width":360,"height":278},
+		{"id":"9c7dbf7c4075f07b","type":"text","text":"송장화 1","x":-340,"y":-72,"width":140,"height":50},
+		{"id":"89695061e2dc5207","type":"text","text":"송장화 2","x":-340,"y":-8,"width":140,"height":50},
+		{"id":"6c15496d303078b5","type":"text","text":"발송처리","x":-340,"y":-210,"width":140,"height":50},
+		{"id":"8c5f50ed41c55db7","type":"text","text":"[원본] 발주(주문)확인/발송관리","x":-1160,"y":-254,"width":250,"height":188},
+		{"id":"61e154b054777400","x":260,"y":-420,"width":160,"height":60,"color":"4","type":"text","text":"엑셀 일괄 발송처리"},
+		{"id":"d01e6790a9f0c80d","x":1,"y":18,"width":139,"height":60,"type":"text","text":"매출 계상"},
+		{"id":"81b0a9845ee50564","x":1,"y":98,"width":139,"height":60,"type":"text","text":"매입 계상"},
+		{"id":"ccfaab19038b4140","x":340,"y":-154,"width":250,"height":114,"color":"6","type":"text","text":"송장을 통한\n작업지시서 (생산 및 출고)"}
+	],
+	"edges":[
+		{"id":"4d32c23746903c86","fromNode":"45eb02094b78474f","fromSide":"right","toNode":"8805857010c673fd","toSide":"left"},
+		{"id":"06f012f70e0c7c0a","fromNode":"45eb02094b78474f","fromSide":"right","toNode":"14ca611abc221be9","toSide":"left"},
+		{"id":"b6f7994de97c96ff","fromNode":"8805857010c673fd","fromSide":"right","toNode":"61e154b054777400","toSide":"bottom"},
+		{"id":"4bd52df9658f70ff","fromNode":"14ca611abc221be9","fromSide":"right","toNode":"61e154b054777400","toSide":"bottom"},
+		{"id":"2cea6ba2916791f7","fromNode":"6c15496d303078b5","fromSide":"right","toNode":"61e154b054777400","toSide":"left"},
+		{"id":"2461462ab25abcc8","fromNode":"89695061e2dc5207","fromSide":"right","toNode":"81b0a9845ee50564","toSide":"left"},
+		{"id":"780f5ac988c78ad4","fromNode":"9c7dbf7c4075f07b","fromSide":"right","toNode":"d01e6790a9f0c80d","toSide":"left"},
+		{"id":"464d3769a2b99c47","fromNode":"f7b24df13070dc16","fromSide":"right","toNode":"45eb02094b78474f","toSide":"left"},
+		{"id":"2fd53e832b6b0b2f","fromNode":"8c5f50ed41c55db7","fromSide":"right","toNode":"f7b24df13070dc16","toSide":"left"},
+		{"id":"7f946ae5fdadff3a","fromNode":"61e154b054777400","fromSide":"top","toNode":"8c5f50ed41c55db7","toSide":"top"},
+		{"id":"8cae5d5f592c449a","fromNode":"8176750a06524cad","fromSide":"right","toNode":"ccfaab19038b4140","toSide":"left"}
+	]
+}
