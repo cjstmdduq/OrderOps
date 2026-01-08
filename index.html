@@ -53,7 +53,6 @@
           </p>
           <input type="file" id="fileInput" accept=".csv" hidden>
           <button class="upload-btn" id="uploadBtn">파일 선택</button>
-          <button class="upload-btn" id="testDataBtn" style="margin-top: 0.75rem;">테스트 데이터 불러오기</button>
         </div>
         <div class="file-info" id="fileInfo" style="display: none;">
           <span class="file-name" id="fileName"></span>
@@ -74,7 +73,7 @@
           <div class="summary-card">
             <div class="card-icon"></div>
             <div class="card-content">
-              <span class="card-value" id="lozenCount">0</span>
+              <span class="card-value" id="logenCount">0</span>
               <span class="card-label">로젠 (소박스)</span>
             </div>
           </div>
@@ -143,18 +142,22 @@
         <div class="section-header">
           <h2>주문 목록</h2>
           <div class="section-actions">
-            <button class="action-btn" id="exportCombinedBtn">송장화</button>
+            <button class="action-btn" id="exportCombined1Btn">송장화 1</button>
+            <button class="action-btn" id="exportCombined2Btn">송장화 2</button>
             <button class="action-btn" id="exportKyungdongBtn">경동 발주서</button>
-            <button class="action-btn" id="exportLozenBtn">로젠 발주서</button>
+            <button class="action-btn" id="exportLogenBtn">로젠 발주서</button>
+            <button class="action-btn" id="exportShippingBtn">발송처리</button>
           </div>
         </div>
         
         <!-- 탭 버튼 컨테이너 -->
         <div class="tab-container">
           <button class="tab-btn active" data-tab="raw">원본 데이터</button>
-          <button class="tab-btn" data-tab="combined">송장화</button>
+          <button class="tab-btn" data-tab="shipping">발송처리</button>
+          <button class="tab-btn" data-tab="combined1">송장화 1</button>
+          <button class="tab-btn" data-tab="combined2">송장화 2</button>
           <button class="tab-btn" data-tab="kyungdong">경동</button>
-          <button class="tab-btn" data-tab="lozen">로젠</button>
+          <button class="tab-btn" data-tab="logen">로젠</button>
         </div>
 
         <div id="rawSection" class="content-section active">
@@ -170,13 +173,39 @@
           </div>
         </div>
 
-        <div id="combinedSection" class="content-section">
+        <div id="shippingSection" class="content-section">
           <div class="table-container">
-            <table id="combinedTable">
+            <table id="shippingTable">
               <thead>
                 <!-- JS로 헤더 렌더링 -->
               </thead>
-              <tbody id="combinedTableBody">
+              <tbody id="shippingTableBody">
+                <!-- JS로 렌더링 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="combined1Section" class="content-section">
+          <div class="table-container">
+            <table id="combined1Table">
+              <thead>
+                <!-- JS로 헤더 렌더링 -->
+              </thead>
+              <tbody id="combined1TableBody">
+                <!-- JS로 렌더링 -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div id="combined2Section" class="content-section">
+          <div class="table-container">
+            <table id="combined2Table">
+              <thead>
+                <!-- JS로 헤더 렌더링 -->
+              </thead>
+              <tbody id="combined2TableBody">
                 <!-- JS로 렌더링 -->
               </tbody>
             </table>
@@ -196,13 +225,13 @@
           </div>
         </div>
 
-        <div id="lozenSection" class="content-section">
+        <div id="logenSection" class="content-section">
           <div class="table-container">
-            <table id="lozenTable">
+            <table id="logenTable">
               <thead>
                 <!-- JS로 헤더 렌더링 -->
               </thead>
-              <tbody id="lozenTableBody">
+              <tbody id="logenTableBody">
                 <!-- JS로 렌더링 -->
               </tbody>
             </table>
@@ -256,8 +285,7 @@
     </div>
   </div>
 
-  <!-- SheetJS for Excel parsing/generation -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

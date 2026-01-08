@@ -332,9 +332,6 @@ body {
   transition: transform 0.2s;
 }
 
-.summary-card:hover {
-  /* Hover effect removed */
-}
 
 
 .card-icon {
@@ -531,7 +528,8 @@ body {
 
 #rawSection .table-container,
 #kyungdongSection .table-container,
-#lozenSection .table-container,
+#logenSection .table-container,
+#shippingSection .table-container,
 #shippingFeesPage .table-container {
   max-height: 600px;
   overflow: auto;
@@ -540,16 +538,19 @@ body {
 
 #rawSection .table-container thead,
 #kyungdongSection .table-container thead,
-#lozenSection .table-container thead,
+#logenSection .table-container thead,
+#shippingSection .table-container thead,
 #shippingFeesPage .table-container thead {
   position: relative;
   z-index: 100;
 }
 
 #rawTable,
-#combinedTable,
+#combined1Table,
+#combined2Table,
 #kyungdongTable,
-#lozenTable,
+#logenTable,
+#shippingTable,
 #shippingFeesTable {
   width: 100%;
   border-collapse: collapse;
@@ -558,24 +559,33 @@ body {
 
 #rawTable th,
 #rawTable td,
-#combinedTable th,
-#combinedTable td,
+#combined1Table th,
+#combined1Table td,
+#combined2Table th,
+#combined2Table td,
 #kyungdongTable th,
 #kyungdongTable td,
-#lozenTable th,
-#lozenTable td,
+#logenTable th,
+#logenTable td,
+#shippingTable th,
+#shippingTable td,
 #shippingFeesTable th,
 #shippingFeesTable td {
   padding: 0.5rem 0.75rem;
   text-align: left;
   border: 1px solid var(--border);
   white-space: nowrap;
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #rawTable th,
-#combinedTable th,
+#combined1Table th,
+#combined2Table th,
 #kyungdongTable th,
-#lozenTable th,
+#logenTable th,
+#shippingTable th,
 #shippingFeesTable th {
   background: var(--background);
   font-weight: 600;
@@ -584,6 +594,29 @@ body {
   top: 0;
   z-index: 10;
   overflow: visible;
+  user-select: none;
+}
+
+/* 컬럼 리사이즈 핸들 */
+.column-resizer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  z-index: 20;
+}
+
+.column-resizer:hover {
+  background: var(--primary);
+  opacity: 0.5;
+}
+
+.column-resizer.resizing {
+  background: var(--primary);
+  opacity: 0.8;
 }
 
 /* Tooltip 스타일 */
@@ -647,9 +680,11 @@ body {
 }
 
 #rawTable tbody tr:hover,
-#combinedTable tbody tr:hover,
+#combined1Table tbody tr:hover,
+#combined2Table tbody tr:hover,
 #kyungdongTable tbody tr:hover,
-#lozenTable tbody tr:hover,
+#logenTable tbody tr:hover,
+#shippingTable tbody tr:hover,
 #shippingFeesTable tbody tr:hover {
   background: var(--primary-light) !important;
 }
@@ -675,23 +710,25 @@ body {
 
 /* 같은 수취인 그룹별 배경색 */
 #rawTable tbody tr.raw-row-group-even,
-#combinedTable tbody tr.raw-row-group-even {
+#combined1Table tbody tr.raw-row-group-even,
+#combined2Table tbody tr.raw-row-group-even {
   background: #ffffff;
 }
 
 #rawTable tbody tr.raw-row-group-odd,
-#combinedTable tbody tr.raw-row-group-odd {
+#combined1Table tbody tr.raw-row-group-odd,
+#combined2Table tbody tr.raw-row-group-odd {
   background: #f8f9fa;
 }
 
 /* 경동/로젠 테이블: 고객(그룹) 단위로 배경색 */
 #kyungdongTable tbody tr.raw-row-group-even,
-#lozenTable tbody tr.raw-row-group-even {
+#logenTable tbody tr.raw-row-group-even {
   background: #ffffff;
 }
 
 #kyungdongTable tbody tr.raw-row-group-odd,
-#lozenTable tbody tr.raw-row-group-odd {
+#logenTable tbody tr.raw-row-group-odd {
   background: #f8f9fa;
 }
 
@@ -1264,7 +1301,7 @@ body {
   background: white;
 }
 
-.courier-badge.lozen {
+.courier-badge.logen {
   color: #64748b;
 }
 
