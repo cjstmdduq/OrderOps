@@ -222,10 +222,12 @@ export function collectDeliveryMemos(items) {
  * @returns {Array} 분리된 아이템 배열
  */
 export function applySmartCutting(item) {
-    const isPetRoll = item.productCategory === 'petRoll' ||
-        (item.rawRow['옵션정보'] && item.rawRow['옵션정보'].includes('50cm'));
+    // 애견롤매트만 적용: productCategory가 'petRoll'이거나 productId가 '4200445704'인 경우만
+    // 유아롤매트(6092903705)는 옵션정보에 '50cm'가 포함될 수 있지만(예: "110x50x1.2cm"), 애견롤매트가 아님
+    const isPetRoll = item.productCategory === 'petRoll' || item.productId === '4200445704';
 
     if (!isPetRoll) {
+        // 유아롤매트는 그대로 반환 (수량과 길이를 분리해서 처리)
         return [item];
     }
 
@@ -327,12 +329,185 @@ export function applySmartCutting(item) {
 }
 
 /**
+ * 롤매트 최적 분할 조합 찾기 (배송비 최소화)
+ * @param {Array} items - 롤매트 아이템 배열 (각 아이템은 {lengthM, widthNum, thicknessNum})
+ * @param {Object} thresholds - 포장 임계값 {small, large, vinyl}
+ * @param {Function} calculateBoxFee - 박스 배송비 계산 함수 (box) => fee
+ * @returns {Array<Array>} 최적 분할 조합 (각 배열은 박스에 들어갈 아이템들)
+ */
+function findOptimalRollSplit(items, thresholds, calculateBoxFee) {
+    if (items.length === 0) return [];
+    
+    // 성능 제한: 아이템이 너무 많으면 기본 분할 사용
+    if (items.length > 20) {
+        return null; // 기본 로직 사용
+    }
+
+    const totalLength = items.reduce((sum, item) => sum + (item.lengthM || 0), 0);
+    
+    // 단일 박스로 가능하면 그대로 반환
+    if (totalLength <= thresholds.large) {
+        return [items];
+    }
+
+    // 간단한 그리디 최적화: 가능한 조합들을 시도
+    const minBoxes = Math.ceil(totalLength / thresholds.large);
+    const maxBoxes = Math.min(minBoxes + 2, items.length);
+    
+    let bestSplit = null;
+    let bestTotalFee = Infinity;
+
+    // 길이 순으로 정렬
+    const sortedItems = [...items].sort((a, b) => (b.lengthM || 0) - (a.lengthM || 0));
+
+    function generateSplits(remainingItems, boxes, currentSplit) {
+        if (boxes === 0) {
+            if (remainingItems.length === 0) {
+                // 유효한 분할 조합
+                const totalFee = currentSplit.reduce((sum, boxItems) => {
+                    const mockBox = {
+                        type: 'roll',
+                        items: boxItems,
+                        packagingType: 'box'
+                    };
+                    return sum + calculateBoxFee(mockBox);
+                }, 0);
+                if (totalFee < bestTotalFee) {
+                    bestTotalFee = totalFee;
+                    bestSplit = currentSplit.map(box => [...box]);
+                }
+            }
+            return;
+        }
+
+        if (remainingItems.length === 0) return;
+
+        // 현재 박스에 아이템 추가 시도
+        const currentBox = [];
+        let currentLength = 0;
+
+        for (let i = 0; i < remainingItems.length; i++) {
+            const item = remainingItems[i];
+            const itemLength = item.lengthM || 0;
+
+            // 대박스 용량을 초과하면 중단
+            if (currentLength + itemLength > thresholds.large) {
+                break;
+            }
+
+            currentBox.push(item);
+            currentLength += itemLength;
+        }
+
+                if (currentBox.length > 0) {
+                    // 주문 정보 보존: 각 아이템의 원본 정보(rawRow, orderId 등)는 그대로 유지
+                    const newRemaining = remainingItems.slice(currentBox.length);
+                    // 아이템 객체는 참조가 아닌 복사본이므로 원본 주문 정보는 보존됨
+                    currentSplit.push([...currentBox]); // 배열 복사
+                    generateSplits(newRemaining, boxes - 1, currentSplit);
+                    currentSplit.pop();
+                }
+    }
+
+    // 박스 수를 늘려가며 최적 조합 찾기
+    for (let numBoxes = minBoxes; numBoxes <= maxBoxes; numBoxes++) {
+        generateSplits(sortedItems, numBoxes, []);
+        if (bestSplit && numBoxes > minBoxes + 1) break;
+    }
+
+    return bestSplit;
+}
+
+/**
+ * 퍼즐매트 최적 분할 조합 찾기 (배송비 최소화)
+ * @param {number} totalCount - 총 수량
+ * @param {number} capacity - 박스 용량
+ * @param {Function} calculateBoxFee - 박스 배송비 계산 함수 (count) => fee
+ * @returns {Array<number>} 최적 분할 조합 (예: [6, 5, 5, 5])
+ */
+function findOptimalPuzzleSplit(totalCount, capacity, calculateBoxFee) {
+    if (totalCount <= capacity) {
+        return [totalCount];
+    }
+
+    // 성능 제한: 너무 많은 수량이면 기본 분할 사용
+    if (totalCount > 50) {
+        const minBoxes = Math.ceil(totalCount / capacity);
+        const result = [];
+        let remaining = totalCount;
+        for (let i = 0; i < minBoxes; i++) {
+            const qty = Math.min(capacity, remaining);
+            result.push(qty);
+            remaining -= qty;
+        }
+        return result;
+    }
+
+    const minBoxes = Math.ceil(totalCount / capacity);
+    // 최대 박스 수 제한 (성능 최적화)
+    const maxBoxes = Math.min(minBoxes + 3, totalCount);
+    
+    let bestSplit = null;
+    let bestTotalFee = Infinity;
+
+    // 가능한 모든 분할 조합 시도 (제한된 범위 내에서)
+    function generateSplits(remaining, boxes, currentSplit) {
+        if (boxes === 0) {
+            if (remaining === 0) {
+                // 유효한 분할 조합
+                const totalFee = currentSplit.reduce((sum, count) => sum + calculateBoxFee(count), 0);
+                if (totalFee < bestTotalFee) {
+                    bestTotalFee = totalFee;
+                    bestSplit = [...currentSplit];
+                }
+            }
+            return;
+        }
+
+        if (remaining <= 0) return;
+
+        // 각 박스에 1장부터 capacity까지 시도
+        const minQty = Math.max(1, Math.ceil(remaining / boxes));
+        const maxQty = Math.min(capacity, remaining - (boxes - 1));
+
+        // 범위가 너무 크면 제한
+        if (maxQty - minQty > 10) {
+            // 대표적인 값들만 시도 (성능 최적화)
+            const candidates = [minQty, Math.floor((minQty + maxQty) / 2), maxQty];
+            for (const qty of candidates) {
+                if (qty >= minQty && qty <= maxQty) {
+                    currentSplit.push(qty);
+                    generateSplits(remaining - qty, boxes - 1, currentSplit);
+                    currentSplit.pop();
+                }
+            }
+        } else {
+            for (let qty = minQty; qty <= maxQty; qty++) {
+                currentSplit.push(qty);
+                generateSplits(remaining - qty, boxes - 1, currentSplit);
+                currentSplit.pop();
+            }
+        }
+    }
+
+    // 박스 수를 늘려가며 최적 조합 찾기 (제한된 범위)
+    for (let numBoxes = minBoxes; numBoxes <= maxBoxes; numBoxes++) {
+        generateSplits(totalCount, numBoxes, []);
+        // 이미 최적 조합을 찾았고 더 많은 박스는 비용이 증가할 것이므로 조기 종료
+        if (bestSplit && numBoxes > minBoxes + 2) break;
+    }
+
+    return bestSplit || [totalCount]; // 최적 조합이 없으면 전체를 하나의 박스로
+}
+
+/**
  * 패킹 처리 메인 함수
  * @param {Object} groupedOrders - 그룹화된 주문 객체
  * @param {Function} generateDesignCode - 디자인 코드 생성 함수
+ * @param {Array} shippingFees - 배송비 데이터 (퍼즐매트 최적화용)
  * @returns {Array} 패킹된 주문 배열
  */
-export function processPacking(groupedOrders, generateDesignCode) {
+export function processPacking(groupedOrders, generateDesignCode, shippingFees = []) {
     const packedOrders = [];
 
     Object.values(groupedOrders).forEach(group => {
@@ -351,53 +526,45 @@ export function processPacking(groupedOrders, generateDesignCode) {
         }
 
         // 롤매트 합포장 로직
-        const vinylItems = [];
-        const combinableItems = [];
-
+        // 모든 롤매트 아이템을 합포장 대상으로 먼저 고려
+        // 합포장 후 총 길이가 비닐 임계값을 넘으면 비닐로 처리
+        const allRollItems = [];
         processedRollItems.forEach(item => {
-            const packaging = determineRollPackaging(item);
             for (let i = 0; i < item.quantity; i++) {
-                if (packaging.type === 'vinyl') {
-                    vinylItems.push({ ...item, quantity: 1, _packaging: packaging });
-                } else {
-                    combinableItems.push({ ...item, quantity: 1, _packaging: packaging });
-                }
+                allRollItems.push({ ...item, quantity: 1 });
             }
         });
 
-        // 비닐 포장 아이템은 단독 박스
-        vinylItems.forEach(item => {
-            const designCode = generateDesignCode(item);
-            const lengthSuffix = item.lengthM > 0 ? `${item.lengthM}m` : '';
-            standaloneBoxes.push({
-                type: 'roll',
-                packagingType: 'vinyl',
-                needsStar: true,
-                items: [item],
-                designText: `${designCode}${lengthSuffix}`,
-                isCombined: false,
-                remark: '',
-                deliveryMemo: item.deliveryMemo,
-                warnings: collectWarningsFromItems([item])
-            });
-        });
-
-        // 합포장 가능 아이템들 처리
-        if (combinableItems.length > 0) {
-            const maxThickness = Math.max(...combinableItems.map(i => i.thicknessNum || 17));
+        if (allRollItems.length > 0) {
+            const maxThickness = Math.max(...allRollItems.map(i => i.thicknessNum || 17));
             const thresholds = PACKAGING_THRESHOLDS[String(maxThickness)] || PACKAGING_THRESHOLDS["17"];
 
+            // 롤매트 최적화는 복잡하므로 일단 기본 로직 사용
+            // (롤매트는 길이 기반이고 합포장 시 포장 타입이 변경될 수 있어 최적화가 더 복잡함)
             let currentBox = { items: [], totalLength: 0 };
             const finishedBoxes = [];
 
-            combinableItems.forEach(item => {
+            // 합포장 시도: 대박스 용량 또는 비닐 최대 길이를 초과하면 새 박스로 분리
+            // 실무자 판단: 대박스 용량 초과 시 각각 개별 박스로 처리
+            allRollItems.forEach(item => {
                 const len = item.lengthM || 0;
-                if (currentBox.totalLength + len > thresholds.large) {
+                const itemThickness = item.thicknessNum || maxThickness;
+                const itemThresholds = PACKAGING_THRESHOLDS[String(itemThickness)] || thresholds;
+                
+                // 현재 박스의 총 길이 + 새 아이템 길이
+                const newTotalLength = currentBox.totalLength + len;
+                
+                // 대박스 용량 또는 비닐 최대 길이를 초과하면 새 박스로 분리
+                const exceedsLarge = newTotalLength > thresholds.large;
+                const exceedsVinylMax = newTotalLength > (itemThresholds.vinylMax || Infinity);
+                
+                if (exceedsLarge || exceedsVinylMax) {
                     if (currentBox.items.length > 0) {
                         finishedBoxes.push(currentBox);
                     }
                     currentBox = { items: [item], totalLength: len };
                 } else {
+                    // 대박스 용량 및 비닐 최대 길이 내에서 합포장
                     currentBox.items.push(item);
                     currentBox.totalLength += len;
                 }
@@ -406,6 +573,41 @@ export function processPacking(groupedOrders, generateDesignCode) {
                 finishedBoxes.push(currentBox);
             }
 
+            // 최적화 실패 시 기본 로직 사용
+            if (finishedBoxes.length === 0) {
+                let currentBox = { items: [], totalLength: 0 };
+
+                // 합포장 시도: 대박스 용량 또는 비닐 최대 길이를 초과하면 새 박스로 분리
+                // 실무자 판단: 대박스 용량 초과 시 각각 개별 박스로 처리
+                allRollItems.forEach(item => {
+                    const len = item.lengthM || 0;
+                    const itemThickness = item.thicknessNum || maxThickness;
+                    const itemThresholds = PACKAGING_THRESHOLDS[String(itemThickness)] || thresholds;
+                    
+                    // 현재 박스의 총 길이 + 새 아이템 길이
+                    const newTotalLength = currentBox.totalLength + len;
+                    
+                    // 대박스 용량 또는 비닐 최대 길이를 초과하면 새 박스로 분리
+                    const exceedsLarge = newTotalLength > thresholds.large;
+                    const exceedsVinylMax = newTotalLength > (itemThresholds.vinylMax || Infinity);
+                    
+                    if (exceedsLarge || exceedsVinylMax) {
+                        if (currentBox.items.length > 0) {
+                            finishedBoxes.push(currentBox);
+                        }
+                        currentBox = { items: [item], totalLength: len };
+                    } else {
+                        // 대박스 용량 및 비닐 최대 길이 내에서 합포장
+                        currentBox.items.push(item);
+                        currentBox.totalLength += len;
+                    }
+                });
+                if (currentBox.items.length > 0) {
+                    finishedBoxes.push(currentBox);
+                }
+            }
+
+            // 합포장된 박스들을 최종 포장 타입 결정
             finishedBoxes.forEach(box => {
                 const totalLen = box.totalLength;
                 const boxMaxThickness = Math.max(...box.items.map(i => i.thicknessNum || 17));
@@ -414,6 +616,7 @@ export function processPacking(groupedOrders, generateDesignCode) {
                 let packagingType = 'smallBox';
                 let needsStar = false;
 
+                // 합포장 후 총 길이가 비닐 임계값을 넘으면 비닐로 처리
                 if (totalLen >= boxThresholds.vinyl) {
                     packagingType = 'vinyl';
                     needsStar = true;
@@ -421,11 +624,26 @@ export function processPacking(groupedOrders, generateDesignCode) {
                     packagingType = 'largeBox';
                 }
 
-                const designText = box.items.map(i => {
+                // 같은 디자인코드와 길이를 가진 아이템들을 그룹핑하여 수량 합산
+                const itemsByKey = new Map();
+                box.items.forEach(i => {
                     const code = generateDesignCode(i);
-                    const lengthSuffix = i.lengthM > 0 ? `${i.lengthM}m` : '';
-                    return `${code}${lengthSuffix}`;
-                }).join('+');
+                    const key = `${code}_${i.lengthM || 0}`;
+                    if (!itemsByKey.has(key)) {
+                        itemsByKey.set(key, {
+                            code: code,
+                            lengthM: i.lengthM || 0,
+                            qty: 0
+                        });
+                    }
+                    itemsByKey.get(key).qty += (i.quantity || 1);
+                });
+
+                const designText = Array.from(itemsByKey.values()).map(item => {
+                    const lengthSuffix = item.lengthM > 0 ? `${item.lengthM}m` : '';
+                    const qtySuffix = item.qty > 1 ? ` x${item.qty}` : '';
+                    return `${item.code}${lengthSuffix}${qtySuffix}`;
+                }).join(' / ');
 
                 standaloneBoxes.push({
                     type: 'roll',
@@ -441,26 +659,54 @@ export function processPacking(groupedOrders, generateDesignCode) {
             });
         }
 
-        // 퍼즐매트 처리
+        // 퍼즐매트 처리 (배송비 최적화 적용)
         if (group.puzzleItems.length > 0) {
             const puzzleItemsCopy = group.puzzleItems.map(item => ({ ...item }));
-            const puzzleBoxCount = calculatePuzzleBoxes(puzzleItemsCopy);
-
+            
+            // 총 수량 계산
+            const totalCount = puzzleItemsCopy.reduce((sum, item) => sum + item.quantity, 0);
             const thickness = puzzleItemsCopy[0].thicknessNum || 25;
             const capacity = PUZZLE_BOX_CAPACITY[String(thickness)] || 6;
+            const width = puzzleItemsCopy[0].widthNum || 100;
+            const thicknessCm = thickness / 10;
 
+            // 배송비 계산 헬퍼 함수
+            const calculateBoxFee = (count) => {
+                if (!shippingFees || shippingFees.length === 0) return 0;
+                
+                for (const fee of shippingFees) {
+                    if (!fee.productGroup.includes('퍼즐매트')) continue;
+                    if (!fee.packageType.includes('강화비닐')) continue;
+                    
+                    const widthMatch = !fee.width || Math.abs(fee.width - width) <= 5;
+                    const thicknessMatch = !fee.thickness || Math.abs(fee.thickness - thicknessCm) <= 0.1;
+                    const lengthMatch = !fee.lengthMin || !fee.lengthMax || 
+                        (count >= fee.lengthMin && count <= fee.lengthMax);
+                    
+                    if (widthMatch && thicknessMatch && lengthMatch) {
+                        return fee.fee;
+                    }
+                }
+                return 0;
+            };
+
+            // 최적 분할 조합 찾기
+            const optimalSplit = findOptimalPuzzleSplit(totalCount, capacity, calculateBoxFee);
+
+            // 최적 조합에 따라 박스 생성
             let itemIndex = 0;
-            for (let i = 0; i < puzzleBoxCount; i++) {
+            for (let i = 0; i < optimalSplit.length; i++) {
+                const targetCount = optimalSplit[i];
                 const boxItems = [];
-                let remainingCapacity = capacity;
+                let remainingCount = targetCount;
 
-                while (itemIndex < puzzleItemsCopy.length && remainingCapacity > 0) {
+                while (itemIndex < puzzleItemsCopy.length && remainingCount > 0) {
                     const item = puzzleItemsCopy[itemIndex];
-                    const takeQty = Math.min(item.quantity, remainingCapacity);
+                    const takeQty = Math.min(item.quantity, remainingCount);
 
                     if (takeQty > 0) {
                         boxItems.push({ ...item, quantity: takeQty });
-                        remainingCapacity -= takeQty;
+                        remainingCount -= takeQty;
                         if (takeQty >= item.quantity) {
                             itemIndex++;
                         } else {

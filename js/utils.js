@@ -67,6 +67,40 @@ export function normalizeAddress(address) {
 }
 
 /**
+ * 경동 발주서용 주소 정규화 (도/시명 축약 및 제거)
+ * 기존 엑셀 작업의 SUBSTITUTE 로직과 동일
+ * @param {string} address - 주소
+ * @returns {string} 정규화된 주소
+ */
+export function normalizeAddressForKyungdong(address) {
+    if (!address) return '';
+    
+    let normalized = String(address);
+    
+    // 도/시명 축약
+    normalized = normalized.replace(/충청북도/g, '충북');
+    normalized = normalized.replace(/충청남도/g, '충남');
+    normalized = normalized.replace(/경상북도/g, '경북');
+    normalized = normalized.replace(/경상남도/g, '경남');
+    normalized = normalized.replace(/전라남도/g, '전남');
+    normalized = normalized.replace(/전라북도/g, '전북');
+    normalized = normalized.replace(/강원도/g, '강원');
+    
+    // 특정 문자열 제거
+    normalized = normalized.replace(/특별시/g, '');
+    normalized = normalized.replace(/광역시/g, '');
+    normalized = normalized.replace(/직할시/g, '');
+    normalized = normalized.replace(/경기도/g, '');
+    normalized = normalized.replace(/특별자치/g, '');
+    normalized = normalized.replace(/아파트,/g, '');
+    
+    // 공백 정리
+    normalized = normalized.replace(/\s+/g, ' ').trim();
+    
+    return normalized;
+}
+
+/**
  * 고객 키 생성 (주소 + 전화번호 기반)
  * @param {{ address: string, phone: string }} customer
  * @returns {string} 고객 키

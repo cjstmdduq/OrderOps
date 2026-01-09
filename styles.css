@@ -541,6 +541,7 @@ body {
 #kyungdong1Section .table-container,
 #kyungdong2Section .table-container,
 #kyungdong3Section .table-container,
+#kyungdongFinalSection .table-container,
 #logenSection .table-container,
 #shippingSection .table-container,
 #shippingFeesPage .table-container {
@@ -553,6 +554,7 @@ body {
 #kyungdong1Section .table-container thead,
 #kyungdong2Section .table-container thead,
 #kyungdong3Section .table-container thead,
+#kyungdongFinalSection .table-container thead,
 #logenSection .table-container thead,
 #shippingSection .table-container thead,
 #shippingFeesPage .table-container thead {
@@ -566,6 +568,7 @@ body {
 #kyungdong1Table,
 #kyungdong2Table,
 #kyungdong3Table,
+#kyungdongFinalTable,
 #logenTable,
 #shippingTable,
 #shippingFeesTable {
@@ -586,6 +589,8 @@ body {
 #kyungdong2Table td,
 #kyungdong3Table th,
 #kyungdong3Table td,
+#kyungdongFinalTable th,
+#kyungdongFinalTable td,
 #logenTable th,
 #logenTable td,
 #shippingTable th,
@@ -607,6 +612,7 @@ body {
 #kyungdong1Table th,
 #kyungdong2Table th,
 #kyungdong3Table th,
+#kyungdongFinalTable th,
 #logenTable th,
 #shippingTable th,
 #shippingFeesTable th {

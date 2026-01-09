@@ -26,13 +26,13 @@ export const TAPE_PRODUCT_IDS = ["4723369915"];
 
 // 두께별 포장 기준 (m 단위) - CSV 배송비 데이터 기준
 export const PACKAGING_THRESHOLDS = {
-    "6": { small: 8, large: 12, vinyl: 12.5 },
-    "9": { small: 6, large: 10, vinyl: 10.5 },
-    "10": { small: 5, large: 9, vinyl: 9.5 },
-    "12": { small: 3.5, large: 8, vinyl: 8.5 },
-    "15": { small: 1, large: 7, vinyl: 8 },
-    "17": { small: 2, large: 6, vinyl: 6.5 },  // CSV: 소박스 0.5~2m, 대박스 2.5~5m(6m까지), 강화비닐 5.5~8m (6m 초과 시 비닐)
-    "22": { small: 1, large: 3, vinyl: 3.5 }    // CSV: 소박스 0.5~1m, 대박스 1.5~3m, 강화비닐 3.5~6m
+    "6": { small: 8, large: 12, vinyl: 12.5, vinylMax: 13 },   // 비닐 최대 13m
+    "9": { small: 6, large: 10, vinyl: 10.5, vinylMax: 13 },   // 비닐 최대 13m
+    "10": { small: 5, large: 9, vinyl: 9.5, vinylMax: 13 },    // 비닐 최대 13m (추정)
+    "12": { small: 3.5, large: 8, vinyl: 8.5, vinylMax: 12 }, // 비닐 최대 12m
+    "15": { small: 1, large: 7, vinyl: 8, vinylMax: 13 },      // 비닐 최대 13m (추정)
+    "17": { small: 2, large: 6, vinyl: 6.5, vinylMax: 8 },    // 비닐 최대 8m
+    "22": { small: 1, large: 3, vinyl: 3.5, vinylMax: 6 }      // 비닐 최대 6m
 };
 
 // 퍼즐매트 박스당 최대 수량

@@ -382,6 +382,8 @@ export function parseOrderData(row, productDb = []) {
         }
 
         // 4200445704 상품: 수량 × 단위길이(0.5m)로 실제 길이 계산
+        // 주의: 이 로직은 애견롤매트(4200445704)에만 적용되어야 함
+        // 유아롤매트(6092903705)는 수량과 길이를 분리해서 처리해야 함
         let quantity = parseInt(row['수량']) || 1;
         let lengthM = parseLengthToMeters(length);
 
