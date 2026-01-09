@@ -107,6 +107,11 @@ export function determineRollPackaging(item) {
     const length = item.lengthM;
     const width = item.widthNum;
 
+    // 70cm 폭 → 로젠 소박스 (단독 배송 전용, 합포장 불가)
+    if (width === 70) {
+        return { type: 'smallBox', needsStar: false, canCombine: false };
+    }
+
     const thresholds = PACKAGING_THRESHOLDS[String(thickness)] || PACKAGING_THRESHOLDS["17"];
 
     // 140폭 8m 이상 → 비닐 + ★마킹
@@ -811,7 +816,25 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
             const totalQtyInBox = box.items.reduce((sum, item) => sum + (item.quantity || 0), 0);
             const boxTotalPrice = box.items.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0);
             const boxMemos = collectDeliveryMemos(box.items);
-            const courier = box.packagingType === 'smallBox' ? 'logen' : 'kyungdong';
+
+            // 택배사 결정 로직
+            let courier = 'kyungdong'; // 기본값
+
+            if (box.packagingType === 'smallBox') {
+                // 소박스는 기본적으로 로젠
+                courier = 'logen';
+            } else {
+                // 대박스/비닐인데 70cm 폭 단독 배송이면 로젠
+                // 70cm 단독 = 박스 내 모든 아이템이 70cm 폭이고 합포장되지 않음
+                const all70cm = box.items.every(item => item.widthNum === 70);
+                const isSingle = !box.isCombined && box.items.length === 1;
+
+                if (all70cm && isSingle) {
+                    courier = 'logen';
+                } else {
+                    courier = 'kyungdong';
+                }
+            }
 
             packedOrders.push({
                 ...box,

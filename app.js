@@ -76,6 +76,7 @@ let kyungdongCount, logenCount, totalCustomers, giftOrders;
 let productTypeFilter, orderStatusFilter, giftFilter, searchInput, selectAll;
 let orderModal, modalClose, modalBody;
 let sidebarItems, shippingFeesPage, shippingFeesTableBody;
+let productDbPage, productDbTableBody;
 let tabBtns, contentSections;
 
 // ========== 헬퍼 함수 (모듈 래퍼) ==========
@@ -116,6 +117,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   sidebarItems = document.querySelectorAll('.sidebar-item');
   shippingFeesPage = document.getElementById('shippingFeesPage');
   shippingFeesTableBody = document.getElementById('shippingFeesTableBody');
+  productDbPage = document.getElementById('productDbPage');
+  productDbTableBody = document.getElementById('productDbTableBody');
 
   tabBtns = document.querySelectorAll('.tab-btn');
   contentSections = document.querySelectorAll('.content-section');
@@ -130,6 +133,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 배송비 테이블 렌더링
   renderShippingFeesTable();
+
+  // 상품 DB 테이블 렌더링
+  renderProductDbTable();
 
   switchPage('orders');
 });
@@ -466,10 +472,17 @@ function switchPage(page) {
   if (page === 'orders') {
     if (ordersPage) ordersPage.style.display = 'block';
     if (shippingFeesPage) shippingFeesPage.style.display = 'none';
+    if (productDbPage) productDbPage.style.display = 'none';
   } else if (page === 'shipping-fees') {
     if (ordersPage) ordersPage.style.display = 'none';
     if (shippingFeesPage) shippingFeesPage.style.display = 'block';
+    if (productDbPage) productDbPage.style.display = 'none';
     renderShippingFeesTable();
+  } else if (page === 'product-db') {
+    if (ordersPage) ordersPage.style.display = 'none';
+    if (shippingFeesPage) shippingFeesPage.style.display = 'none';
+    if (productDbPage) productDbPage.style.display = 'block';
+    renderProductDbTable();
   }
 }
 
@@ -625,16 +638,18 @@ function renderShippingFeesTable() {
     return;
   }
 
-  shippingFees.forEach(fee => {
+  shippingFees.forEach((fee, index) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td>${index + 1}</td>
       <td>${fee.productGroup}</td>
       <td>${fee.packageType}</td>
+      <td>${formatCurrency(fee.fee)}</td>
       <td>${fee.width || '-'}</td>
       <td>${fee.thickness || '-'}</td>
       <td>${fee.lengthMin || '-'}</td>
       <td>${fee.lengthMax || '-'}</td>
-      <td>${formatCurrency(fee.fee)}</td>
+      <td></td>
     `;
     shippingFeesTableBody.appendChild(tr);
   });
@@ -643,6 +658,35 @@ function renderShippingFeesTable() {
   const shippingFeesTable = document.getElementById('shippingFeesTable');
   if (shippingFeesTable) {
     setupTableResizers(shippingFeesTable);
+  }
+}
+
+function renderProductDbTable() {
+  if (!productDbTableBody) return;
+  productDbTableBody.innerHTML = '';
+
+  if (productDb.length === 0) {
+    productDbTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">상품 DB 데이터를 로드 중...</td></tr>';
+    return;
+  }
+
+  productDb.forEach((product, index) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${index + 1}</td>
+      <td>${product.productId}</td>
+      <td>${product.optionInfo}</td>
+      <td>${product.designCode}</td>
+      <td>${product.lengthNum || '-'}</td>
+      <td>${product.lengthM || '-'}</td>
+    `;
+    productDbTableBody.appendChild(tr);
+  });
+
+  // 리사이저 다시 설정
+  const productDbTable = document.getElementById('productDbTable');
+  if (productDbTable) {
+    setupTableResizers(productDbTable);
   }
 }
 
@@ -689,10 +733,10 @@ function renderCombinedTableCommon(tableId, tbodyId, getDataFn) {
     const row = data[i];
     const tr = document.createElement('tr');
 
-    // 수취인명 컬럼 (2번째 컬럼, 인덱스 1)으로 고객 구분
-    const customerName = row[1] || '';
-    if (customerName && customerName !== currentCustomer) {
-      currentCustomer = customerName;
+    // _customerKey 메타데이터로 고객 구분 (동명이인 구분)
+    const customerKey = row._customerKey || '';
+    if (customerKey && customerKey !== currentCustomer) {
+      currentCustomer = customerKey;
       groupIndex++;
     }
 
@@ -878,12 +922,12 @@ function renderShippingTable() {
     const row = data[i];
     const tr = document.createElement('tr');
 
-    // 수취인명 컬럼 (두 번째 컬럼, 인덱스 1)으로 고객 구분
-    const customerName = row[1] || '';
-    if (customerName && customerName !== currentCustomer) {
-      currentCustomer = customerName;
+    // _customerKey 메타데이터로 고객 구분 (동명이인 구분)
+    const customerKey = row._customerKey || '';
+    if (customerKey && customerKey !== currentCustomer) {
+      currentCustomer = customerKey;
       groupIndex++;
-      console.log(`[발송처리] 새 고객: ${customerName}, groupIndex: ${groupIndex}`);
+      console.log(`[발송처리] 새 고객: ${customerKey}, groupIndex: ${groupIndex}`);
     }
 
     // 고객별 교차 색상 적용
@@ -891,7 +935,7 @@ function renderShippingTable() {
     tr.classList.add(className);
 
     if (i <= 3) {
-      console.log(`[발송처리] 행${i}: ${customerName}, 클래스: ${className}`);
+      console.log(`[발송처리] 행${i}: ${customerKey}, 클래스: ${className}`);
     }
 
     row.forEach(cell => {
@@ -922,9 +966,14 @@ function renderShippingTable() {
 function groupKyungdongBoxesByCustomer(kyungdongOrders) {
   const customerGroups = new Map();
   kyungdongOrders.forEach(box => {
-    const customerKey = box.customerName || box.recipientLabel || '';
-    if (!customerKey) return; // 고객명이 없으면 스킵
-    
+    const customerName = box.customerName || box.recipientLabel || '';
+    const customerPhone = box.phone || '';
+    const customerAddress = box.address || '';
+
+    // 동명이인 구분을 위해 이름+전화번호+주소 조합으로 키 생성
+    const customerKey = `${customerName}|${customerPhone}|${customerAddress}`;
+    if (!customerName) return; // 고객명이 없으면 스킵
+
     if (!customerGroups.has(customerKey)) {
       customerGroups.set(customerKey, []);
     }
@@ -1061,7 +1110,11 @@ function getCombined2Data() {
   // 고객별로 박스 그룹화 및 총 결제금액 계산
   const customerGroups = new Map();
   packedOrders.forEach(box => {
-    const customerKey = box.customerName || box.recipientLabel || '';
+    const customerName = box.customerName || box.recipientLabel || '';
+    const customerPhone = box.phone || '';
+    const customerAddress = box.address || '';
+    const customerKey = `${customerName}|${customerPhone}|${customerAddress}`;
+
     if (!customerGroups.has(customerKey)) {
       customerGroups.set(customerKey, {
         boxes: [],
@@ -1093,8 +1146,11 @@ function getCombined2Data() {
     const buyerPhone = rawRow['구매자연락처'] || '';
     const buyerName = rawRow['구매자명'] || '';
 
-    // 고객별 총 결제금액 가져오기
-    const customerKey = box.customerName || box.recipientLabel || '';
+    // 고객별 총 결제금액 가져오기 (동일한 키 생성 방식 사용)
+    const customerName = box.customerName || box.recipientLabel || '';
+    const customerPhone = box.phone || '';
+    const customerAddress = box.address || '';
+    const customerKey = `${customerName}|${customerPhone}|${customerAddress}`;
     const customerGroup = customerGroups.get(customerKey);
     const formattedPayment = customerGroup ? customerGroup.totalPayment.toLocaleString('ko-KR') : '';
 
@@ -1283,6 +1339,12 @@ function getCombinedDataCommon(useDesignWithQty) {
     const buyerPhone = rawRow['구매자연락처'] || '';
     const buyerName = rawRow['구매자명'] || '';
 
+    // 고객 키 생성 (동명이인 구분용)
+    const customerName = box.customerName || box.recipientLabel || '';
+    const customerPhone = box.phone || '';
+    const customerAddress = box.address || '';
+    const customerKey = `${customerName}|${customerPhone}|${customerAddress}`;
+
     // 각 원본 주문 라인별로 행 생성
     box.items.forEach((item, itemIndex) => {
       const designCode = box.designText || '';  // 송장화2와 동일하게 box.designText 사용
@@ -1314,6 +1376,8 @@ function getCombinedDataCommon(useDesignWithQty) {
         buyerName,
         formattedPayment
       ];
+      // 행에 고객 키 메타데이터 추가 (렌더링 시 색상 구분용)
+      row._customerKey = customerKey;
       data.push(row);
     });
   });
@@ -1325,7 +1389,7 @@ function getCombinedDataCommon(useDesignWithQty) {
 
 // 경동발주서(최종) - 리팩토링된 버전
 function getKyungdongFinalData() {
-  const headers = ['받는분', '주소', '상세주소', '운송장번호', '고객사주문번호', '우편번호', '도착영업소', '전화번호', '기타전화번호', '선불후불', '메모', '수량', '포장상태', '가로', '세로', '높이', '무게', '개별단가', '배송운임', '기타운임', '별도운임', '할증운임', '도서운임', '품목명'];
+  const headers = ['받는분', '주소', '상세주소', '운송장번호', '고객사주문번호', '우편번호', '도착영업소', '전화번호', '기타전화번호', '선불후불', '품목명', '수량', '포장상태', '가로', '세로', '높이', '무게', '개별단가', '배송운임', '기타운임', '별도운임', '할증운임', '도서운임', '메모'];
   const data = [headers];
 
   const kyungdongOrders = packedOrders.filter(box => box.courier === 'kyungdong');
@@ -1391,8 +1455,8 @@ function getKyungdongFinalData() {
             isFirstItem ? (box.phone || '') : '', // 전화번호
             isFirstItem ? (box.phone || '') : '', // 기타전화번호
             isFirstItem ? '선불' : '', // 선불후불
-            isFirstItem ? memoText : '', // 메모
-            1, // 수량
+            isFirstItem ? (memoText || '따사룸') : '', // 품목명 (증정품 정보) - 첫 행만
+            isFirstItem ? 1 : '', // 수량 - 첫 행만
             isFirstItem ? (box.packagingType === 'vinyl' ? '비닐' : '박스') : '', // 포장상태
             isFirstItem ? (dims.width || 1) : '', // 가로
             isFirstItem ? (dims.depth || 1) : '', // 세로
@@ -1404,7 +1468,7 @@ function getKyungdongFinalData() {
             '', // 별도운임
             '', // 할증운임
             '', // 도서운임
-            itemText.text || '따사룸' // 품목명
+            itemText.text || '' // 메모 (디자인코드+수량) - 모든 행에 표시
           ];
           data.push(row);
         });
@@ -1421,7 +1485,7 @@ function getKyungdongFinalData() {
           box.phone || '', // 전화번호
           box.phone || '', // 기타전화번호
           '선불', // 선불후불
-          memoText, // 메모
+          memoText || '따사룸', // 품목명 (증정품 정보)
           1, // 수량
           box.packagingType === 'vinyl' ? '비닐' : '박스', // 포장상태
           dims.width || 1, // 가로
@@ -1434,7 +1498,7 @@ function getKyungdongFinalData() {
           '', // 별도운임
           '', // 할증운임
           '', // 도서운임
-          designWithQty || box.designText || '따사룸' // 품목명
+          designWithQty || box.designText || '따사룸' // 메모 (디자인코드+수량)
         ];
         data.push(row);
       }
@@ -1446,42 +1510,130 @@ function getKyungdongFinalData() {
 
 
 function getLogenData() {
-  const headers = ['받는분', '받는분 전화번호', '받는분 핸드폰', '우편번호', '받는분 주소', '운임타입', '송장수량', '디자인', '디자인+수량', '배송메세지', '합배송여부', '배송운임'];
+  const headers = ['받는분', '받는분 전화번호', '받는분 핸드폰', '우편번호', '받는분 주소', '운임타입', '송장수량', '디자인', '배송메세지', '합배송여부'];
   const data = [headers];
 
   const logenOrders = packedOrders.filter(box => box.courier === 'logen');
 
+  // 고객별로 박스 그룹화
+  const customerGroups = new Map();
   logenOrders.forEach(box => {
-    const designCode = box.designText || '';
-    // 각 아이템별로 디자인코드 + 길이 + 수량 형태로 생성
-    const designWithQty = box.items.map(item => {
-      const code = generateDesignCode(item);
-      const lengthM = item.lengthM || 0;
-      const qty = item.quantity || 1;
-      let result = code;
-      if (lengthM > 0) {
-        result += ` ${lengthM}m`;
-      }
-      result += ` x${qty}`;
-      return result;
-    }).join(' / ');
-    const fee = calculateShippingFee(box, shippingFees);
+    const customerName = box.customerName || box.recipientLabel || '';
+    const customerPhone = box.phone || '';
+    const customerAddress = box.address || '';
 
-    const row = [
-      box.recipientLabel || box.customerName || '',
-      box.phone || '',
-      box.phone || '',
-      box.zipCode || '',
-      box.address || '',
-      '선불',
-      box.totalBoxes || 1,
-      designCode,
-      designWithQty,
-      (box.deliveryMemos || []).join(' / '),
-      box.totalBoxes > 1 ? 'Y' : 'N',
-      fee
-    ];
-    data.push(row);
+    // 동명이인 구분을 위해 이름+전화번호+주소 조합으로 키 생성
+    const customerKey = `${customerName}|${customerPhone}|${customerAddress}`;
+    if (!customerName) return;
+
+    if (!customerGroups.has(customerKey)) {
+      customerGroups.set(customerKey, []);
+    }
+    customerGroups.get(customerKey).push(box);
+  });
+
+  // 고객별로 처리
+  customerGroups.forEach((boxes) => {
+    if (!boxes || boxes.length === 0) return;
+
+    // 고객별 총 결제금액 및 롤매트 길이 계산 (증정품 계산용)
+    const rollMatProductIds = ['6092903705', '6626596277', '4200445704'];
+    const puzzleMatProductId = '5994906898';
+
+    let totalPayment = 0;
+    let totalRollLength = 0;
+    let hasRollOrPuzzle = false;
+
+    boxes.forEach(box => {
+      if (!box.items || !Array.isArray(box.items)) return;
+
+      box.items.forEach(item => {
+        const itemRawRow = item.rawRow || {};
+        const payment = parsePrice(itemRawRow['최종 상품별 총 주문금액']) || item.price || 0;
+        totalPayment += payment;
+
+        const productId = item.rawRow?.['상품번호'] || '';
+        if (rollMatProductIds.includes(productId)) {
+          const lengthM = item.lengthM || 0;
+          const qty = item.quantity || 1;
+          totalRollLength += lengthM * qty;
+          hasRollOrPuzzle = true;
+        }
+        if (productId === puzzleMatProductId) {
+          hasRollOrPuzzle = true;
+        }
+      });
+    });
+
+    // 증정품 계산
+    const gifts = [];
+    if (totalRollLength >= 10 && totalPayment >= 195000) {
+      let tapeCount;
+      if (totalRollLength >= 50) {
+        tapeCount = 3;
+      } else if (totalRollLength >= 30) {
+        tapeCount = 2;
+      } else {
+        tapeCount = 1;
+      }
+      gifts.push(`★증정★테이프20m x${tapeCount}`);
+    }
+    if (hasRollOrPuzzle && totalPayment >= 200000) {
+      gifts.push('★증정★팻말 x1');
+    }
+
+    // 각 박스별로 행 생성
+    boxes.forEach((box, boxIndex) => {
+      if (!box) return;
+
+      const fee = calculateShippingFee(box, shippingFees);
+      const isFirstBox = boxIndex === 0;
+      const hasMultipleBoxes = boxes.length > 1;
+
+      // 박스의 아이템들을 디자인코드별로 그룹핑
+      const groupedItems = groupItemsByDesign(box);
+      const itemTexts = createItemTexts(groupedItems);
+
+      // 배송메모
+      const deliveryMemos = (box.deliveryMemos || []).join(' / ');
+
+      // 각 아이템별로 행 생성
+      itemTexts.forEach((itemText, itemIndex) => {
+        const isFirstItem = itemIndex === 0;
+        const row = [
+          isFirstItem ? (box.recipientLabel || box.customerName || '') : '',
+          isFirstItem ? (box.phone || '') : '',
+          isFirstItem ? (box.phone || '') : '',
+          isFirstItem ? (box.zipCode || '') : '',
+          isFirstItem ? (box.address || '') : '',
+          isFirstItem ? fee : '',
+          isFirstItem ? 1 : '',
+          itemText.text,
+          isFirstItem ? deliveryMemos : '',
+          (hasMultipleBoxes && !isFirstBox) ? '합' : ''
+        ];
+        data.push(row);
+      });
+
+      // 증정품 행 추가 (첫 번째 박스만)
+      if (isFirstBox && gifts.length > 0) {
+        gifts.forEach(gift => {
+          const row = [
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            gift,
+            deliveryMemos,
+            hasMultipleBoxes ? '합' : ''
+          ];
+          data.push(row);
+        });
+      }
+    });
   });
 
   return data;
@@ -1492,6 +1644,12 @@ function getShippingData() {
   const data = [headers];
 
   packedOrders.forEach(box => {
+    // 고객 키 생성 (동명이인 구분용)
+    const customerName = box.customerName || box.recipientLabel || '';
+    const customerPhone = box.phone || '';
+    const customerAddress = box.address || '';
+    const customerKey = `${customerName}|${customerPhone}|${customerAddress}`;
+
     const row = [
       box.group?.orderId || '',
       box.customerName || '',
@@ -1503,6 +1661,8 @@ function getShippingData() {
       (box.deliveryMemos || []).join(' / '),
       box.courier === 'kyungdong' ? '경동' : '로젠'
     ];
+    // 행에 고객 키 메타데이터 추가 (렌더링 시 색상 구분용)
+    row._customerKey = customerKey;
     data.push(row);
   });
 

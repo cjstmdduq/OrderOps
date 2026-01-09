@@ -35,6 +35,10 @@
             <span class="sidebar-icon">💰</span>
             <span class="sidebar-text">택배 운임비</span>
           </button>
+          <button class="sidebar-item" data-page="product-db">
+            <span class="sidebar-icon">📋</span>
+            <span class="sidebar-text">상품 DB</span>
+          </button>
         </nav>
       </aside>
 
@@ -159,7 +163,7 @@
           <button class="tab-btn" data-tab="combined2">송장화 2</button>
           <div class="tab-divider"></div>
           <!-- 그룹 2: 경동류 -->
-          <button class="tab-btn" data-tab="kyungdongFinal">경동발주서(최종)</button>
+          <button class="tab-btn" data-tab="kyungdongFinal">경동</button>
           <div class="tab-divider"></div>
           <!-- 그룹 3: 로젠류 -->
           <button class="tab-btn" data-tab="logen">로젠</button>
@@ -234,7 +238,18 @@
           <div class="table-container">
             <table id="logenTable">
               <thead>
-                <!-- JS로 헤더 렌더링 -->
+                <tr>
+                  <th>받는분</th>
+                  <th>받는분 전화번호</th>
+                  <th>받는분 핸드폰</th>
+                  <th>우편번호</th>
+                  <th>받는분 주소</th>
+                  <th>운임타입</th>
+                  <th>송장수량</th>
+                  <th>디자인</th>
+                  <th>배송메세지</th>
+                  <th>합배송여부</th>
+                </tr>
               </thead>
               <tbody id="logenTableBody">
                 <!-- JS로 렌더링 -->
@@ -243,37 +258,58 @@
           </div>
         </div>
       </section>
-
-      <!-- 택배 운임비 페이지 -->
-      <section class="page-content" id="shippingFeesPage" style="display: none;">
-        <div class="page-header">
-          <h2>택배 운임비</h2>
-        </div>
-        <div class="missing-fee-notice">
-          <p><strong>⚠️ 누락된 운임비 항목:</strong> 대박스 초과 및 합포장 운임비가 누락되어 있습니다. 담당자에게 확인하여 데이터를 채워주세요.</p>
-        </div>
-        <div class="table-container">
-          <table id="shippingFeesTable">
-            <thead>
-              <tr>
-                <th>순번</th>
-                <th>제품군</th>
-                <th>포장종류</th>
-                <th>배송비</th>
-                <th>폭(cm)</th>
-                <th>두께(cm)</th>
-                <th>길이 최소(m)</th>
-                <th>길이 최대(m)</th>
-                <th>비고</th>
-              </tr>
-            </thead>
-            <tbody id="shippingFeesTableBody">
-              <!-- JS로 렌더링 -->
-            </tbody>
-          </table>
-        </div>
-      </section>
     </main>
+
+    <!-- 택배 운임비 페이지 -->
+    <section class="page-content" id="shippingFeesPage" style="display: none;">
+      <div class="page-header">
+        <h2>택배 운임비</h2>
+      </div>
+      <div class="table-container" style="max-height: none; overflow: visible;">
+        <table id="shippingFeesTable">
+          <thead>
+            <tr>
+              <th>순번</th>
+              <th>제품군</th>
+              <th>포장종류</th>
+              <th>배송비</th>
+              <th>폭(cm)</th>
+              <th>두께(cm)</th>
+              <th>길이 최소(m)</th>
+              <th>길이 최대(m)</th>
+              <th>비고</th>
+            </tr>
+          </thead>
+          <tbody id="shippingFeesTableBody">
+            <!-- JS로 렌더링 -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 상품 DB 페이지 -->
+    <section class="page-content" id="productDbPage" style="display: none;">
+      <div class="page-header">
+        <h2>상품 DB</h2>
+      </div>
+      <div class="table-container" style="max-height: none; overflow: visible;">
+        <table id="productDbTable">
+          <thead>
+            <tr>
+              <th>순번</th>
+              <th>상품번호</th>
+              <th>옵션정보</th>
+              <th>디자인코드</th>
+              <th>길이(숫자)</th>
+              <th>길이(m)</th>
+            </tr>
+          </thead>
+          <tbody id="productDbTableBody">
+            <!-- JS로 렌더링 -->
+          </tbody>
+        </table>
+      </div>
+    </section>
     </div>
 
     <!-- 주문 상세 모달 -->

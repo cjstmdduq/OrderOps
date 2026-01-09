@@ -176,7 +176,12 @@ body {
 
 /* ========== 페이지 컨텐츠 ========== */
 .page-content {
+  flex: 1;
   padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
+  overflow-y: auto;
 }
 
 .page-header {
@@ -544,7 +549,8 @@ body {
 #kyungdongFinalSection .table-container,
 #logenSection .table-container,
 #shippingSection .table-container,
-#shippingFeesPage .table-container {
+#shippingFeesPage .table-container,
+#productDbPage .table-container {
   max-height: 600px;
   overflow: auto;
   position: relative;
@@ -557,7 +563,8 @@ body {
 #kyungdongFinalSection .table-container thead,
 #logenSection .table-container thead,
 #shippingSection .table-container thead,
-#shippingFeesPage .table-container thead {
+#shippingFeesPage .table-container thead,
+#productDbPage .table-container thead {
   position: relative;
   z-index: 100;
 }
@@ -571,7 +578,8 @@ body {
 #kyungdongFinalTable,
 #logenTable,
 #shippingTable,
-#shippingFeesTable {
+#shippingFeesTable,
+#productDbTable {
   width: 100%;
   border-collapse: collapse;
   font-size: 0.8rem;
@@ -596,7 +604,9 @@ body {
 #shippingTable th,
 #shippingTable td,
 #shippingFeesTable th,
-#shippingFeesTable td {
+#shippingFeesTable td,
+#productDbTable th,
+#productDbTable td {
   padding: 0.5rem 0.75rem;
   text-align: left;
   border: 1px solid var(--border);
@@ -615,7 +625,8 @@ body {
 #kyungdongFinalTable th,
 #logenTable th,
 #shippingTable th,
-#shippingFeesTable th {
+#shippingFeesTable th,
+#productDbTable th {
   background: var(--background);
   font-weight: 600;
   color: var(--text-secondary);
@@ -716,7 +727,8 @@ body {
 #kyungdong3Table tbody tr:hover,
 #logenTable tbody tr:hover,
 #shippingTable tbody tr:hover,
-#shippingFeesTable tbody tr:hover {
+#shippingFeesTable tbody tr:hover,
+#productDbTable tbody tr:hover {
   background: var(--primary-light) !important;
 }
 
