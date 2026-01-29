@@ -20,6 +20,9 @@ function normalizeForMatching(str) {
         .replace(/[\u{200D}]/gu, '')              // Zero Width Joiner (제거)
         .replace(/[\u{20E3}]/gu, '')              // Combining Enclosing Keycap (제거)
         .replace(/[\u{E0020}-\u{E007F}]/gu, '')   // Tags (제거)
+        // 공백 정규화: "두께 / 폭"과 "두께/폭"을 동일하게 처리
+        .replace(/\s*\/\s*/g, '/')                // 슬래시 주변 공백 제거
+        .replace(/\s*:\s*/g, ':')                 // 콜론 주변 공백 제거
         // 연속된 언더스코어를 두 개로 통일
         .replace(/_+/g, '__')
         .trim();

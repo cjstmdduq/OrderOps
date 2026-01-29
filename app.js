@@ -326,11 +326,22 @@ function processFile(file) {
   } else if (ext === 'xlsx' || ext === 'xls') {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const data = new Uint8Array(e.target.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      const csv = XLSX.utils.sheet_to_csv(firstSheet);
-      parseCSV(csv);
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+          throw new Error('PasswordProtectedOrEmpty');
+        }
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        if (!firstSheet || !firstSheet['!ref']) {
+          throw new Error('PasswordProtectedOrEmpty');
+        }
+        const csv = XLSX.utils.sheet_to_csv(firstSheet);
+        parseCSV(csv);
+      } catch (err) {
+        const msg = '비밀번호가 걸려 있는 파일은 업로드할 수 없습니다.\n비밀번호를 제거한 뒤 다시 업로드해 주세요.\n\n【비밀번호 제거 방법】\n1. 엑셀에서 해당 파일을 연다(비밀번호 입력 후 열기)\n2. [파일] → [다른 이름으로 저장]\n3. 저장 창에서 [도구] → [일반 옵션]\n4. "열기 비밀번호" / "쓰기 비밀번호" 칸을 비운 뒤 [확인]\n5. 저장 후 새 파일을 업로드한다';
+        alert(msg);
+      }
     };
     reader.readAsArrayBuffer(file);
   } else {
@@ -343,6 +354,21 @@ function processFile(file) {
   if (clearBtn) clearBtn.addEventListener('click', clearFile);
 }
 
+/**
+ * 네이버 주문 원본 헤더인지 판별.
+ * 네이버 다운로드 파일은 1행에 '엑셀 일괄발송' 안내 문구가 올 수 있음(※ 1행 삭제 후 업로드 부탁 등).
+ * 그 경우 2행이 실제 헤더(상품주문번호, 주문번호, 수취인명...)이므로 2행부터 헤더로 사용.
+ */
+function isNaverOrderHeader(row) {
+  if (!row || !Array.isArray(row) || row.length === 0) return false;
+  const joined = row.map(c => String(c || '').trim()).join(' ');
+  // 1행 설명 문구에 흔히 포함되는 문구 → 헤더가 아님
+  if (/엑셀\s*일괄발송|1행\s*삭제|다운로드\s*받은\s*파일로/.test(joined)) return false;
+  const required = ['상품주문번호', '주문번호', '수취인명', '구매자명', '상품번호', '상품명'];
+  const hasEnough = required.filter(k => joined.includes(k)).length >= 2;
+  return hasEnough;
+}
+
 function parseCSV(text) {
   // BOM 제거
   if (text.charCodeAt(0) === 0xFEFF) {
@@ -351,17 +377,28 @@ function parseCSV(text) {
 
   const rows = parseCSVToRows(text);
 
-  if (!rows || rows.length < 2 || !rows[0]) {
+  if (!rows || rows.length < 2) {
     console.error('CSV 파싱 실패: rows=', rows);
     alert('CSV 파일 형식이 올바르지 않습니다.');
     return;
   }
 
-  const headers = rows[0].map(h => h ? h.trim() : '');
+  // 1행이 헤더가 아니면(네이버 원본의 설명 행 등) 2행부터 헤더로 사용
+  let headerRowIndex = 0;
+  if (!isNaverOrderHeader(rows[0]) && rows.length >= 3 && isNaverOrderHeader(rows[1])) {
+    headerRowIndex = 1;
+  }
+
+  const headers = rows[headerRowIndex].map(h => h ? h.trim() : '');
+  if (!headers.some(h => h)) {
+    alert('CSV 파일 형식이 올바르지 않습니다. 헤더 행을 찾을 수 없습니다.');
+    return;
+  }
+
   ordersData = [];
   rawOrderData = [];
 
-  for (let i = 1; i < rows.length; i++) {
+  for (let i = headerRowIndex + 1; i < rows.length; i++) {
     const rowValues = rows[i];
     const rowObj = {};
     headers.forEach((header, index) => {
@@ -1023,12 +1060,12 @@ function calculateCustomerTotals(boxes) {
 function calculateGiftsForCustomer(totalRollLength, totalPayment, hasRollOrPuzzle) {
   const gifts = [];
 
-  // 테이프 증정 (롤매트 10m 이상 + 195,000원 이상)
-  if (totalRollLength >= 10 && totalPayment >= 195000) {
+  // 테이프 증정 (100,000원 이상, 결제금액 기준 수량)
+  if (totalPayment >= 100000) {
     let tapeCount;
-    if (totalRollLength >= 50) {
+    if (totalPayment >= 500000) {
       tapeCount = 3;
-    } else if (totalRollLength >= 30) {
+    } else if (totalPayment >= 300000) {
       tapeCount = 2;
     } else {
       tapeCount = 1;
@@ -1036,9 +1073,9 @@ function calculateGiftsForCustomer(totalRollLength, totalPayment, hasRollOrPuzzl
     gifts.push(`★증정★테이프20m x${tapeCount}`);
   }
 
-  // 팻말 증정 (롤매트 or 퍼즐매트 + 200,000원 이상)
-  if (hasRollOrPuzzle && totalPayment >= 200000) {
-    gifts.push('★증정★팻말 x1');
+  // 팻말 증정 (롤매트 or 퍼즐매트 + 300,000원 이상)
+  if (hasRollOrPuzzle && totalPayment >= 300000) {
+    gifts.push('★팻말 증정★ x1');
   }
 
   return gifts.join(' / ');
@@ -1104,11 +1141,15 @@ function getCombined1Data() {
 
 function getCombined2Data() {
   const headers = ['상품주문번호', '수취인명', '운임타입', '송장수량', '디자인', '길이', '수량', '디자인+수량', '배송메세지', '합포장', '비고', '주문하신분 핸드폰', '받는분 핸드폰', '우편번호', '받는분 주소', '주문자명', '실제결제금액'];
-  const data = [headers];
   const MAX_DESIGN_WITH_QTY_LENGTH = 30; // 디자인+수량 컬럼 임계값 (박혜정 36자, 김태종 48자 → 분할)
 
   // 고객별로 박스 그룹화 및 총 결제금액 계산
   const customerGroups = new Map();
+  // 주문번호별 결제금액 추적 (중복 계산 방지)
+  const orderPaymentMap = new Map();
+  const rollMatProductIds = ['6092903705', '6626596277', '4200445704'];
+  const puzzleMatProductId = '5994906898';
+  
   packedOrders.forEach(box => {
     const customerName = box.customerName || box.recipientLabel || '';
     const customerPhone = box.phone || '';
@@ -1118,23 +1159,46 @@ function getCombined2Data() {
     if (!customerGroups.has(customerKey)) {
       customerGroups.set(customerKey, {
         boxes: [],
-        totalPayment: 0
+        totalPayment: 0,
+        totalRollLength: 0,
+        hasRollOrPuzzle: false
       });
     }
     const group = customerGroups.get(customerKey);
     group.boxes.push(box);
 
-    // 이 박스의 결제금액 합산
-    const boxPayment = box.items.reduce((sum, item) => {
+    // 이 박스의 결제금액 합산 (주문번호별로 중복 계산 방지)
+    box.items.forEach(item => {
       const itemRawRow = item.rawRow || {};
+      const orderId = itemRawRow['상품주문번호'] || item.id || '';
       const payment = parsePrice(itemRawRow['최종 상품별 총 주문금액']) || item.price || 0;
-      return sum + payment;
-    }, 0);
-    group.totalPayment += boxPayment;
+      
+      // 같은 주문번호의 결제금액은 한 번만 계산
+      if (orderId && !orderPaymentMap.has(orderId)) {
+        orderPaymentMap.set(orderId, payment);
+        group.totalPayment += payment;
+      } else if (!orderId) {
+        // 주문번호가 없으면 그냥 합산 (중복 가능성 있지만 어쩔 수 없음)
+        group.totalPayment += payment;
+      }
+      
+      // 고객 전체 롤매트 길이 계산
+      const productId = itemRawRow['상품번호'] || '';
+      if (rollMatProductIds.includes(productId)) {
+        group.totalRollLength += (item.lengthM || 0) * (item.quantity || 1);
+        group.hasRollOrPuzzle = true;
+      }
+      if (productId === puzzleMatProductId) {
+        group.hasRollOrPuzzle = true;
+      }
+    });
   });
 
   // 고객별 첫 행 추적
   const customerFirstRowFlags = new Map();
+  
+  // 정렬을 위한 행 데이터 저장 (제품번호, 폭 정보 포함)
+  const rowsWithSortInfo = [];
 
   packedOrders.forEach(box => {
     const designCode = box.designText || '';
@@ -1162,6 +1226,8 @@ function getCombined2Data() {
 
     // 증정품 계산을 위한 고객 전체 롤매트 길이와 결제금액
     const totalPayment = customerGroup ? customerGroup.totalPayment : 0;
+    const totalRollLength = customerGroup ? customerGroup.totalRollLength : 0;
+    const hasRollOrPuzzle = customerGroup ? customerGroup.hasRollOrPuzzle : false;
 
     // 배송메세지 생성 (파손주의 표시 추가)
     let deliveryMemo = (box.deliveryMemos || []).join(' / ');
@@ -1170,43 +1236,26 @@ function getCombined2Data() {
       deliveryMemo = deliveryMemo ? `★파손주의★ ${deliveryMemo}` : '★파손주의★';
     }
 
-    // 증정품 계산
-    const rollMatProductIds = ['6092903705', '6626596277', '4200445704'];
-    const puzzleMatProductId = '5994906898';
-
-    // 롤매트 총 길이 계산
-    const totalRollLength = box.items.reduce((sum, item) => {
-      const productId = item.rawRow?.['상품번호'] || '';
-      if (rollMatProductIds.includes(productId)) {
-        return sum + (item.lengthM || 0) * (item.quantity || 1);
-      }
-      return sum;
-    }, 0);
-
-    // 롤매트 또는 퍼즐매트 포함 여부 확인
-    const hasRollOrPuzzle = box.items.some(item => {
-      const productId = item.rawRow?.['상품번호'] || '';
-      return rollMatProductIds.includes(productId) || productId === puzzleMatProductId;
-    });
-
+    // 증정품 계산 (고객의 첫 번째 박스에만 표시)
     const gifts = [];
-
-    // 테이프 증정 (롤매트 10m 이상 + 195,000원 이상)
-    if (totalRollLength >= 10 && totalPayment >= 195000) {
-      let tapeCount;
-      if (totalRollLength >= 50) {
-        tapeCount = 3;
-      } else if (totalRollLength >= 30) {
-        tapeCount = 2;
-      } else {
-        tapeCount = 1;
+    if (isCustomerFirstRow) {
+    // 테이프 증정 (100,000원 이상, 결제금액 기준 수량)
+    if (totalPayment >= 100000) {
+        let tapeCount;
+        if (totalPayment >= 500000) {
+          tapeCount = 3;
+        } else if (totalPayment >= 300000) {
+          tapeCount = 2;
+        } else {
+          tapeCount = 1;
+        }
+        gifts.push(`★증정★테이프20m x${tapeCount}`);
       }
-      gifts.push(`★증정★테이프20m x${tapeCount}`);
-    }
 
-    // 팻말 증정 (롤매트 or 퍼즐매트 + 200,000원 이상)
-    if (hasRollOrPuzzle && totalPayment >= 200000) {
-      gifts.push('★증정★팻말 x1');
+      // 팻말 증정 (롤매트 or 퍼즐매트 + 300,000원 이상) - 한 번만 표시
+      if (hasRollOrPuzzle && totalPayment >= 300000) {
+        gifts.push('★팻말 증정★ x1');
+      }
     }
 
     const giftText = gifts.join(' / ');
@@ -1247,15 +1296,22 @@ function getCombined2Data() {
         result += ` ${itemData.lengthM}m`;
       }
       result += ` x${itemData.qty}`;
+      // 정렬을 위한 제품번호와 폭 정보 포함
+      const productId = itemData.item?.rawRow?.['상품번호'] || itemData.item?.productId || '';
+      const widthNum = itemData.item?.widthNum || 0;
       return {
         text: result,
         designCode: itemData.designCode,
         lengthM: itemData.lengthM,
-        qty: itemData.qty
+        qty: itemData.qty,
+        productId: productId,
+        widthNum: widthNum,
+        isTape: isTape
       };
     });
 
     const designWithQty = itemTexts.map(it => it.text).join(' / ');
+    const hasTapeItem = itemTexts.some(it => it.isTape);
 
     // 디버깅: 텍스트 길이 확인
     if (box.customerName === '장하은' || box.customerName === '김태종' || box.customerName?.includes('박혜정')) {
@@ -1270,7 +1326,9 @@ function getCombined2Data() {
     }
 
     // 텍스트 길이 초과 여부 확인 (그룹핑된 아이템 개수로 체크)
-    if (designWithQty.length >= MAX_DESIGN_WITH_QTY_LENGTH && groupedItems.length > 1) {
+    // 또는 테이프가 다른 상품과 함께 있을 때는 항상 분할해서 행을 나눠줌
+    if ((designWithQty.length >= MAX_DESIGN_WITH_QTY_LENGTH && groupedItems.length > 1) ||
+        (hasTapeItem && groupedItems.length > 1)) {
       console.log(`[송장화2 분할] ${box.customerName}: ${groupedItems.length}개 그룹 분할`);
 
       // 분할 로직: 아이템별로 행 생성
@@ -1279,29 +1337,44 @@ function getCombined2Data() {
         const isTape = itemText.designCode.includes('테이프');
         // 이 박스의 첫 행이면서 고객의 첫 행인 경우에만 실제결제금액 표시
         const shouldShowPayment = isFirstRow && isCustomerFirstRow;
+        // 정렬을 위한 제품번호와 폭 정보 추출
+        const productId = itemText.productId || '';
+        const widthNum = itemText.widthNum || 0;
+        
         const row = [
-          isFirstRow ? (box.group?.orderId || '') : '',
-          isFirstRow ? (box.recipientLabel || box.customerName || '') : '',
+          box.group?.orderId || '',
+          box.recipientLabel || box.customerName || '',
           isFirstRow ? fee : '',
           isFirstRow ? 1 : '',
           itemText.designCode,
           (itemText.lengthM && !isTape) ? `${itemText.lengthM}m` : '',
           itemText.qty,
           itemText.text,
-          isFirstRow ? deliveryMemo : '',
-          isFirstRow ? (box.isCombined ? '합' : '') : '',
-          isFirstRow ? giftText : '',
-          isFirstRow ? buyerPhone : '',
-          isFirstRow ? (box.phone || '') : '',
-          isFirstRow ? (box.zipCode || '') : '',
-          isFirstRow ? (box.address || '') : '',
-          isFirstRow ? buyerName : '',
+          deliveryMemo,
+          box.isCombined ? '합' : '',
+          giftText,
+          buyerPhone,
+          box.phone || '',
+          box.zipCode || '',
+          box.address || '',
+          buyerName,
           shouldShowPayment ? formattedPayment : ''
         ];
-        data.push(row);
+        // 정렬 정보와 함께 저장 (고객 키 포함)
+        rowsWithSortInfo.push({
+          row: row,
+          customerKey: customerKey,
+          productId: productId,
+          widthNum: widthNum
+        });
       });
     } else {
       // 기존 로직: 단일 행 (고객의 첫 행인 경우에만 실제결제금액 표시)
+      // 정렬을 위한 제품번호와 폭 정보 추출
+      const firstItem = box.items[0];
+      const productId = firstItem?.rawRow?.['상품번호'] || firstItem?.productId || '';
+      const widthNum = firstItem?.widthNum || 0;
+      
       const row = [
         box.group?.orderId || '',
         box.recipientLabel || box.customerName || '',
@@ -1321,11 +1394,42 @@ function getCombined2Data() {
         buyerName,
         isCustomerFirstRow ? formattedPayment : ''
       ];
-      data.push(row);
+      // 정렬 정보와 함께 저장 (고객 키 포함)
+      rowsWithSortInfo.push({
+        row: row,
+        customerKey: customerKey,
+        productId: productId,
+        widthNum: widthNum
+      });
     }
   });
 
-  return data;
+  // 고객별로 먼저 그룹화, 그 다음 제품번호, 폭순으로 정렬
+  rowsWithSortInfo.sort((a, b) => {
+    const customerKeyA = a.customerKey || '';
+    const customerKeyB = b.customerKey || '';
+    const productIdA = a.productId || '';
+    const productIdB = b.productId || '';
+    const widthA = a.widthNum || 0;
+    const widthB = b.widthNum || 0;
+    
+    // 고객별로 먼저 그룹화
+    if (customerKeyA !== customerKeyB) {
+      return customerKeyA.localeCompare(customerKeyB);
+    }
+    // 같은 고객이면 제품번호로 정렬
+    if (productIdA !== productIdB) {
+      return productIdA.localeCompare(productIdB);
+    }
+    // 같은 제품이면 폭으로 정렬
+    return widthA - widthB;
+  });
+  
+  // 정렬된 행만 추출
+  const sortedRows = rowsWithSortInfo.map(item => item.row);
+  
+  // 헤더와 정렬된 데이터 합치기
+  return [headers, ...sortedRows];
 }
 
 function getCombinedDataCommon(useDesignWithQty) {
@@ -1567,11 +1671,12 @@ function getLogenData() {
 
     // 증정품 계산
     const gifts = [];
-    if (totalRollLength >= 10 && totalPayment >= 195000) {
+    // 테이프 증정 (100,000원 이상, 결제금액 기준 수량)
+    if (totalPayment >= 100000) {
       let tapeCount;
-      if (totalRollLength >= 50) {
+      if (totalPayment >= 500000) {
         tapeCount = 3;
-      } else if (totalRollLength >= 30) {
+      } else if (totalPayment >= 300000) {
         tapeCount = 2;
       } else {
         tapeCount = 1;
@@ -1579,7 +1684,7 @@ function getLogenData() {
       gifts.push(`★증정★테이프20m x${tapeCount}`);
     }
     if (hasRollOrPuzzle && totalPayment >= 200000) {
-      gifts.push('★증정★팻말 x1');
+      gifts.push('★팻말 증정★ x1');
     }
 
     // 각 박스별로 행 생성

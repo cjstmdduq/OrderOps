@@ -49,13 +49,12 @@
         <div class="upload-area" id="uploadArea">
           <div class="upload-icon"></div>
           <h1>주문파일 업로드</h1>
-          <p>스마트스토어에서 다운로드한 주문 CSV 파일만 드래그하거나 클릭하여 업로드할 수 있어요.</p>
+          <p>스마트스토어에서 다운로드한 주문 파일(CSV 또는 Excel)을 드래그하거나 클릭하여 업로드할 수 있어요.</p>
           <p>
-            CSV 파일로 변경하려면: 스마트스토어 주문 엑셀 파일을 연 뒤
-            <strong>다른 이름으로 저장</strong> &gt; 파일 형식을
-            <strong>CSV UTF-8(쉼표로 분리)</strong>로 선택해서 저장해주세요.
+            CSV로 쓰려면: 엑셀 파일을 연 뒤 <strong>다른 이름으로 저장</strong> &gt; 형식을
+            <strong>CSV UTF-8(쉼표로 분리)</strong>로 선택해 저장하세요. <strong>xlsx/xls는 그대로 업로드</strong>해도 됩니다.
           </p>
-          <input type="file" id="fileInput" accept=".csv" hidden>
+          <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
           <button class="upload-btn" id="uploadBtn">파일 선택</button>
         </div>
         <div class="file-info" id="fileInfo" style="display: none;">

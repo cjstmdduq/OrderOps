@@ -180,7 +180,15 @@ export function parseOptionInfo(optionInfo) {
     if (!thicknessMatch) {
         thicknessMatch = optionInfo.match(/두께\s*\/?\s*폭:\s*([0-9.]+)(cm|mm|T)/i);
     }
-    if (thicknessMatch) {
+    // 퍼즐 옵션처럼 "(4.0cm) 100x100" 형식인 경우도 두께로 인식
+    if (!thicknessMatch) {
+        thicknessMatch = optionInfo.match(/\(([0-9.]+)\s*cm\)/i);
+        if (thicknessMatch) {
+            // 이 케이스는 항상 cm 단위로 취급
+            result.thickness = thicknessMatch[1] + 'cm';
+        }
+    }
+    if (thicknessMatch && !result.thickness) {
         const value = parseFloat(thicknessMatch[1]);
         const unit = thicknessMatch[2] ? thicknessMatch[2].toLowerCase() : 'T';
         if (unit === 't') {
@@ -384,12 +392,15 @@ export function parseOrderData(row, productDb = []) {
         // 4200445704 상품: 수량 × 단위길이(0.5m)로 실제 길이 계산
         // 주의: 이 로직은 애견롤매트(4200445704)에만 적용되어야 함
         // 유아롤매트(6092903705)는 수량과 길이를 분리해서 처리해야 함
+        // 애견롤매트는 1개당 50cm(0.5m) 고정이므로, 수량 × 0.5m = 실제 길이
         let quantity = parseInt(row['수량']) || 1;
         let lengthM = parseLengthToMeters(length);
 
-        if (productId === '4200445704' && lengthM > 0 && quantity > 1) {
+        if (productId === '4200445704' && lengthM > 0) {
+            // 애견롤매트는 항상 0.5m 단위이므로, 수량과 관계없이 계산
+            // 예: 수량 10개 × 0.5m = 5m 한 롤
             lengthM = lengthM * quantity;
-            // 길이 문자열도 업데이트 (예: 0.5m × 6 = 3m)
+            // 길이 문자열도 업데이트 (예: 0.5m × 10 = 5m)
             length = lengthM + 'm';
             // 수량은 1롤로 처리 (길이에 이미 합산됨)
             quantity = 1;

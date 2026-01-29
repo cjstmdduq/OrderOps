@@ -424,6 +424,57 @@ function findOptimalRollSplit(items, thresholds, calculateBoxFee) {
 }
 
 /**
+ * 퍼즐매트 균등 분할 조합 찾기 (파손 위험 최소화)
+ * @param {number} totalCount - 총 수량
+ * @param {number} capacity - 박스 용량
+ * @returns {Array<number>} 균등 분할 조합 (예: 8개 → [4, 4], 9개 → [5, 4])
+ */
+function findEvenPuzzleSplit(totalCount, capacity) {
+    if (totalCount <= capacity) {
+        return [totalCount];
+    }
+
+    // 필요한 박스 수 계산
+    const numBoxes = Math.ceil(totalCount / capacity);
+    
+    // 균등 배분: 각 박스에 가능한 한 균등하게 분배
+    const baseQty = Math.floor(totalCount / numBoxes);
+    const remainder = totalCount % numBoxes;
+    
+    const result = [];
+    let remainingCount = totalCount;
+    
+    for (let i = 0; i < numBoxes; i++) {
+        if (remainingCount <= 0) break;
+        
+        // 마지막 박스가 아니면 균등하게 배분
+        if (i < numBoxes - 1) {
+            // 나머지가 있으면 앞쪽 박스에 1개씩 추가
+            const qty = baseQty + (i < remainder ? 1 : 0);
+            const actualQty = Math.min(qty, capacity, remainingCount);
+            result.push(actualQty);
+            remainingCount -= actualQty;
+        } else {
+            // 마지막 박스에는 남은 수량 모두 배분
+            const actualQty = Math.min(remainingCount, capacity);
+            result.push(actualQty);
+            remainingCount -= actualQty;
+        }
+    }
+    
+    // 용량 제한으로 인해 배분되지 않은 수량이 있으면 추가 박스 생성
+    if (remainingCount > 0) {
+        while (remainingCount > 0) {
+            const actualQty = Math.min(remainingCount, capacity);
+            result.push(actualQty);
+            remainingCount -= actualQty;
+        }
+    }
+    
+    return result;
+}
+
+/**
  * 퍼즐매트 최적 분할 조합 찾기 (배송비 최소화)
  * @param {number} totalCount - 총 수량
  * @param {number} capacity - 박스 용량
@@ -659,7 +710,12 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
                     isCombined: box.items.length > 1,
                     remark: box.items.length > 1 ? '합' : '',
                     deliveryMemo: box.items.find(i => i.deliveryMemo)?.deliveryMemo || '',
-                    warnings: collectWarningsFromItems(box.items)
+                    warnings: collectWarningsFromItems(box.items),
+                    // 고객 정보 명시적으로 설정 (테이프 합포장 시 올바른 그룹에 포함되도록)
+                    customerName: group.customerName,
+                    address: group.address,
+                    phone: group.phone,
+                    group: group
                 });
             });
         }
@@ -695,8 +751,8 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
                 return 0;
             };
 
-            // 최적 분할 조합 찾기
-            const optimalSplit = findOptimalPuzzleSplit(totalCount, capacity, calculateBoxFee);
+            // 균등 분할 조합 찾기 (파손 위험 최소화)
+            const optimalSplit = findEvenPuzzleSplit(totalCount, capacity);
 
             // 최적 조합에 따라 박스 생성
             let itemIndex = 0;
@@ -734,7 +790,12 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
                         designText: boxDesignText,
                         isCombined: false,
                         remark: '',
-                        deliveryMemo: boxMemo
+                        deliveryMemo: boxMemo,
+                        // 고객 정보 명시적으로 설정 (테이프 합포장 시 올바른 그룹에 포함되도록)
+                        customerName: group.customerName,
+                        address: group.address,
+                        phone: group.phone,
+                        group: group
                     });
                 }
             }
@@ -751,15 +812,32 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
                     designText: generateDesignCode(item),
                     isCombined: false,
                     remark: '',
-                    deliveryMemo: item.deliveryMemo
+                    deliveryMemo: item.deliveryMemo,
+                    // 고객 정보 명시적으로 설정
+                    customerName: group.customerName,
+                    address: group.address,
+                    phone: group.phone,
+                    group: group
                 });
             }
         });
 
-        // 테이프 처리
+        // 테이프 처리 (같은 그룹의 박스에만 합포장)
         if (group.tapeItems.length > 0) {
-            if (standaloneBoxes.length > 0) {
-                const targetBox = standaloneBoxes[standaloneBoxes.length - 1];
+            // 같은 그룹의 마지막 박스 찾기
+            let targetBox = null;
+            for (let i = standaloneBoxes.length - 1; i >= 0; i--) {
+                const box = standaloneBoxes[i];
+                // 같은 그룹인지 확인 (고객 정보로 확인)
+                if (box.customerName === group.customerName && 
+                    box.address === group.address && 
+                    box.phone === group.phone) {
+                    targetBox = box;
+                    break;
+                }
+            }
+            
+            if (targetBox) {
                 group.tapeItems.forEach(item => {
                     targetBox.items.push({ ...item });
                 });
@@ -774,6 +852,7 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
                     if (tapeMemo) targetBox.deliveryMemo = tapeMemo;
                 }
             } else {
+                // 같은 그룹의 박스가 없으면 테이프만 따로 박스 생성
                 const tapeDesigns = group.tapeItems.map(i => generateDesignCode(i)).join('+');
                 const tapeMemo = group.tapeItems.find(i => i.deliveryMemo)?.deliveryMemo || '';
 
@@ -785,7 +864,12 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
                     designText: tapeDesigns,
                     isCombined: true,
                     remark: '합',
-                    deliveryMemo: tapeMemo
+                    deliveryMemo: tapeMemo,
+                    // 고객 정보 명시적으로 설정
+                    customerName: group.customerName,
+                    address: group.address,
+                    phone: group.phone,
+                    group: group
                 });
             }
         }
@@ -820,7 +904,13 @@ export function processPacking(groupedOrders, generateDesignCode, shippingFees =
             // 택배사 결정 로직
             let courier = 'kyungdong'; // 기본값
 
-            if (box.packagingType === 'smallBox') {
+            // 샘플은 다른 상품과 합포장되지 않으므로, 박스에 샘플이 있으면 항상 샘플 단독 → 로젠
+            const hasSample = (box.items || []).some(item =>
+                item.productId === '11201311838' || (item.productName || '').includes('샘플')
+            );
+            if (hasSample) {
+                courier = 'logen';
+            } else if (box.packagingType === 'smallBox') {
                 // 소박스는 기본적으로 로젠
                 courier = 'logen';
             } else {
